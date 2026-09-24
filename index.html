@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMP CS 参加者取得ツール</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main class="container">
+
+    <h1>DMP CS 参加者取得ツール</h1>
+
+    <label for="event-url">大会URL</label>
+
+    <div class="input-area">
+      <input
+        type="text"
+        id="event-url"
+        placeholder="https://www.dmp-ranking.com/event.asp?..."
+      >
+
+      <button id="get-event">
+        参加者を取得
+      </button>
+    </div>
+
+    <section id="event-info">
+      <h2>イベント情報</h2>
+
+      <p>ShopID：<span id="shop-id">-</span></p>
+      <p>EventID：<span id="event-id">-</span></p>
+
+      <p>
+        参加者一覧URL：
+        <a id="participant-url" href="#" target="_blank">-</a>
+      </p>
+    </section>
+
+    <section id="participants">
+      <h2>参加表明者</h2>
+
+      <p id="participant-count">取得件数：0人</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>ハンドルネーム</th>
+          </tr>
+        </thead>
+
+        <tbody id="participant-list">
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
