@@ -24,13 +24,15 @@ button.addEventListener("click", async () => {
     // イベント情報を表示
     const shopElement = document.getElementById("shop-id");
     const eventElement = document.getElementById("event-id");
+    const seqElement = document.getElementById("seq");
 
-    if (!shopElement || !eventElement) {
+    if (!shopElement || !eventElement || !seqElement) {
       throw new Error("HTMLのイベント情報表示欄が見つかりません。");
     }
 
     shopElement.textContent = shopId;
     eventElement.textContent = eventId;
+    seqElement.textContent = seq;
 
     // 参加者一覧ページのURL
     const participantUrl =
@@ -111,4 +113,34 @@ button.addEventListener("click", async () => {
       error.message
     );
   }
+});
+
+// ==============================
+// リセットボタン
+// ==============================
+
+const resetButton = document.getElementById("reset");
+
+resetButton.addEventListener("click", () => {
+  // 大会URLをリセット
+  document.getElementById("event-url").value = "";
+
+  // イベント情報をリセット
+  document.getElementById("shop-id").textContent = "-";
+  document.getElementById("event-id").textContent = "-";
+  document.getElementById("seq").textContent = "-";
+
+  // 参加者一覧URLをリセット
+  const participantUrl =
+    document.getElementById("participant-url");
+
+  participantUrl.href = "#";
+  participantUrl.textContent = "-";
+
+  // 参加者一覧をリセット
+  document.getElementById("participant-list").innerHTML = "";
+
+  // 件数をリセット
+  document.getElementById("participant-count").textContent =
+    "取得件数：0人";
 });

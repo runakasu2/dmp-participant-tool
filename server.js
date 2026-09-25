@@ -1,10 +1,39 @@
 const express = require("express");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 app.use(express.static("."));
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL
+    ? { rejectUnauthorized: false }
+    : false
+});
+
+// DB接続テスト
+app.get("/api/db-test", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+
+    res.json({
+      success: true,
+      message: "データベースに接続できました。",
+      time: result.rows[0].now
+    });
+  } catch (error) {
+    console.error("DB接続エラー:", error);
+
+    res.status(500).json({
+      success: false,
+      error: "データベースに接続できませんでした。",
+      detail: error.message
+    });
+  }
+});
 
 app.post("/api/participants", async (req, res) => {
   try {
@@ -34,11 +63,11 @@ app.post("/api/participants", async (req, res) => {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-  shopID: String(shopId),
-  eventID: String(eventId),
-  heldID: String(seq),
-  offset: offset,
-})
+            shopID: String(shopId),
+            eventID: String(eventId),
+            heldID: String(seq),
+            offset: offset
+          })
         }
       );
 
@@ -51,8 +80,6 @@ app.post("/api/participants", async (req, res) => {
       const result = await response.json();
 
       const datas = JSON.parse(result.d);
-
-      console.log("先頭データ:", datas[0]);
 
       console.log("今回取得:", datas.length, "人");
 
@@ -101,3 +128,4 @@ app.listen(PORT, HOST, () => {
     `サーバー起動: http://localhost:${PORT}`
   );
 });
+

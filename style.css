@@ -39,6 +39,8 @@ button {
   color: white;
 }
 
+#reset { background: #777; } #reset:hover { background: #555; }
+
 section {
   margin-top: 30px;
 }
