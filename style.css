@@ -5,22 +5,85 @@ body {
   color: #222;
 }
 
+
+/* ==============================
+   ヘッダー
+   ============================== */
+
+.header {
+  background: white;
+  border-bottom: 1px solid #ddd;
+  padding: 20px 0 0;
+}
+
+.header h1 {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 30px 20px;
+}
+
+
+/* ==============================
+   メニュー
+   ============================== */
+
+.menu {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 30px;
+  display: flex;
+  gap: 5px;
+}
+
+.menu-button {
+  background: #eee;
+  color: #222;
+  border-radius: 8px 8px 0 0;
+  padding: 12px 30px;
+}
+
+.menu-button:hover {
+  background: #ddd;
+}
+
+.menu-button.active {
+  background: #222;
+  color: white;
+}
+
+
+/* ==============================
+   メイン
+   ============================== */
+
 .container {
   max-width: 900px;
-  margin: 50px auto;
+  margin: 30px auto 50px;
   padding: 30px;
   background: white;
   border-radius: 12px;
 }
 
+
 h1 {
   margin-top: 0;
 }
+
+
+h2 {
+  margin-top: 0;
+}
+
+
+/* ==============================
+   入力エリア
+   ============================== */
 
 .input-area {
   display: flex;
   gap: 10px;
 }
+
 
 input {
   flex: 1;
@@ -29,6 +92,7 @@ input {
   border-radius: 6px;
   font-size: 14px;
 }
+
 
 button {
   padding: 12px 20px;
@@ -39,16 +103,50 @@ button {
   color: white;
 }
 
-#reset { background: #777; } #reset:hover { background: #555; }
+
+button:hover {
+  opacity: 0.8;
+}
+
+
+#reset {
+  background: #777;
+}
+
+
+#reset:hover {
+  background: #555;
+}
+
+
+#result-reset {
+  background: #777;
+}
+
+
+#result-reset:hover {
+  background: #555;
+}
+
+
+/* ==============================
+   セクション
+   ============================== */
 
 section {
   margin-top: 30px;
 }
 
+
+/* ==============================
+   テーブル
+   ============================== */
+
 table {
   width: 100%;
   border-collapse: collapse;
 }
+
 
 th,
 td {
@@ -57,6 +155,18 @@ td {
   text-align: left;
 }
 
+
 th {
   background: #f0f0f0;
+}
+
+
+/* ==============================
+   区切り線
+   ============================== */
+
+hr {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 40px 0;
 }

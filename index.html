@@ -3,68 +3,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DMP CS 参加者取得ツール</title>
+  <title>DMP CS データ管理ツール</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
+
+  <header class="header">
+    <h1>DMP CS データ管理ツール</h1>
+
+    <nav class="menu">
+      <button id="menu-participants" class="menu-button active">
+        参加表明
+      </button>
+
+      <button id="menu-results" class="menu-button">
+        大会結果
+      </button>
+    </nav>
+  </header>
+
+
   <main class="container">
 
-    <h1>DMP CS 参加者取得ツール</h1>
+    <!-- ============================== -->
+    <!-- 参加表明ページ -->
+    <!-- ============================== -->
 
-    <label for="event-url">大会URL</label>
+    <div id="page-participants" class="page">
 
-    <div class="input-area">
-      <input
-        type="text"
-        id="event-url"
-        placeholder="https://www.dmp-ranking.com/event.asp?..."
-      >
+      <h2>参加表明者を取得</h2>
 
-      <button id="get-event">
-        参加者を取得
-      </button>
+      <label for="event-url">大会URL</label>
 
-      <button id="reset">
-        リセット
-      </button>
+      <div class="input-area">
+        <input
+          type="text"
+          id="event-url"
+          placeholder="https://www.dmp-ranking.com/event.asp?..."
+        >
+
+        <button id="get-event">
+          参加者を取得
+        </button>
+
+        <button id="reset">
+          リセット
+        </button>
+      </div>
+
+
+      <section id="event-info">
+        <h2>イベント情報</h2>
+
+        <p>ShopID：<span id="shop-id">-</span></p>
+        <p>EventID：<span id="event-id">-</span></p>
+        <p>Seq：<span id="seq">-</span></p>
+
+        <p>
+          参加者一覧URL：
+          <a id="participant-url" href="#" target="_blank">-</a>
+        </p>
+      </section>
+
+
+      <section id="participants">
+        <h2>参加表明者</h2>
+
+        <p id="participant-count">取得件数：0人</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>ハンドルネーム</th>
+              <th>過去の使用デッキ</th>
+            </tr>
+          </thead>
+
+          <tbody id="participant-list">
+          </tbody>
+        </table>
+      </section>
+
     </div>
 
-    <section id="event-info">
-      <h2>イベント情報</h2>
 
-      <p>ShopID：<span id="shop-id">-</span></p>
-      <p>EventID：<span id="event-id">-</span></p>
-      <p>Seq：<span id="seq">-</span></p>
+    <!-- ============================== -->
+    <!-- 大会結果ページ -->
+    <!-- ============================== -->
 
-      <p>
-        参加者一覧URL：
-        <a id="participant-url" href="#" target="_blank">-</a>
-      </p>
-    </section>
+    <div id="page-results" class="page" style="display: none;">
 
-    <section id="participants">
-      <h2>参加表明者</h2>
+      <h2>大会結果を取得</h2>
 
-      <p id="participant-count">取得件数：0人</p>
+      <label for="result-url">大会結果URL</label>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>ハンドルネーム</th>
-            <th>デッキ</th>
-            <th>保存</th>
-          </tr>
-        </thead>
+      <div class="input-area">
+        <input
+          type="text"
+          id="result-url"
+          placeholder="https://www.dmp-ranking.com/Deckbuild/Event/EventResult?..."
+        >
 
-        <tbody id="participant-list">
-        </tbody>
-      </table>
-    </section>
+        <button id="get-result">
+          大会結果を取得
+        </button>
+
+        <button id="result-reset">
+          リセット
+        </button>
+      </div>
+
+
+      <section id="result-info">
+        <h2>大会結果情報</h2>
+
+        <p>Year：<span id="result-year">-</span></p>
+        <p>ShopID：<span id="result-shop-id">-</span></p>
+        <p>EventID：<span id="result-event-id">-</span></p>
+        <p>開催回：<span id="result-held">-</span></p>
+      </section>
+
+
+      <section id="results">
+        <h2>大会結果参加者</h2>
+
+        <p id="result-count">取得件数：0人</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>順位</th>
+              <th>ID</th>
+              <th>ハンドルネーム</th>
+              <th>実際の使用デッキ</th>
+              <th>保存</th>
+            </tr>
+          </thead>
+
+          <tbody id="result-list">
+          </tbody>
+        </table>
+      </section>
+
+    </div>
 
   </main>
 
+
   <script src="script.js"></script>
+
 </body>
 </html>
