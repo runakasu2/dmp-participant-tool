@@ -230,12 +230,16 @@ button.addEventListener(
       // --------------------------
 
       const deckResponse =
-        await fetch(
-          "/api/deck-history?eventId=" +
-          encodeURIComponent(
-            eventId
-          )
-        );
+  await fetch(
+    "/api/deck-history" +
+    "?shopId=" +
+    encodeURIComponent(shopId) +
+    "&eventId=" +
+    encodeURIComponent(eventId) +
+    "&seq=" +
+    encodeURIComponent(seq)
+  );
+
 
 
       const deckData =
@@ -589,11 +593,15 @@ resultButton.addEventListener(
 
 const deckResponse =
   await fetch(
-    "/api/deck-history?eventId=" +
-    encodeURIComponent(
-      data.eventId
-    )
+    "/api/deck-history" +
+    "?shopId=" +
+    encodeURIComponent(data.shopId) +
+    "&eventId=" +
+    encodeURIComponent(data.eventId) +
+    "&seq=" +
+    encodeURIComponent(data.held)
   );
+  
 
 const deckData =
   await deckResponse.json();
@@ -811,19 +819,26 @@ if (savedDeck) {
                       },
 
                       body:
-                        JSON.stringify({
-                          dmpId:
-                            participant.id,
+  JSON.stringify({
+    dmpId:
+      participant.id,
 
-                          eventId:
-                            data.eventId,
+    shopId:
+      data.shopId,
 
-                          eventDate:
-                            data.eventDate,
+    eventId:
+      data.eventId,
 
-                          deckName:
-                            deckName
-                        })
+    seq:
+      data.held,
+
+    eventDate:
+      data.eventDate,
+
+    deckName:
+      deckName
+  })
+  
                     }
                   );
 

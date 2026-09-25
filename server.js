@@ -360,6 +360,19 @@ app.get(
         );
       `);
 
+      // 既存のdeck_historyに
+// ShopIDとSeqを追加
+await pool.query(`
+  ALTER TABLE deck_history
+  ADD COLUMN IF NOT EXISTS shop_id VARCHAR(100);
+`);
+
+await pool.query(`
+  ALTER TABLE deck_history
+  ADD COLUMN IF NOT EXISTS seq VARCHAR(100);
+`);
+
+
       await pool.query(`
         CREATE TABLE IF NOT EXISTS deck_history (
           id SERIAL PRIMARY KEY,
@@ -1130,6 +1143,7 @@ app.post(
 
 // ========================================
 // 保存済みデッキを取得
+// ShopID + EventID + Seq で大会を識別
 // ========================================
 
 app.get(
@@ -1138,55 +1152,68 @@ app.get(
     try {
 
       const {
-        eventId
+        shopId,
+        eventId,
+        seq
       } = req.query;
 
-      if (!eventId) {
+      if (
+        !shopId ||
+        !eventId ||
+        !seq
+      ) {
         return res
           .status(400)
           .json({
             success: false,
-
             error:
-              "Event IDがありません。"
+              "ShopID、EventID、またはSeqがありません。"
           });
       }
+
 
       const result =
         await pool.query(
           `
-          SELECT
-            p.dmp_id,
-            p.handle_name,
-            dh.event_id,
-            dh.event_date,
-            dh.deck_name,
-            dh.created_at
+            SELECT
+              p.dmp_id,
+              p.handle_name,
+              dh.shop_id,
+              dh.event_id,
+              dh.seq,
+              dh.event_date,
+              dh.deck_name,
+              dh.created_at
 
-          FROM deck_history dh
+            FROM deck_history dh
 
-          INNER JOIN players p
-            ON dh.player_id =
-               p.id
+            INNER JOIN players p
+              ON dh.player_id = p.id
 
-          WHERE dh.event_id = $1
+            WHERE
+              dh.shop_id = $1
+              AND dh.event_id = $2
+              AND dh.seq = $3
 
-          ORDER BY
-            dh.created_at DESC;
+            ORDER BY
+              dh.created_at DESC;
           `,
           [
-            String(eventId)
+            String(shopId),
+            String(eventId),
+            String(seq)
           ]
         );
 
+
       res.json({
         success: true,
-
         decks:
           result.rows
       });
 
     } catch (error) {
+
       console.error(
         "保存済みデッキ取得エラー:",
         error
@@ -1208,6 +1235,7 @@ app.get(
 
 // ========================================
 // デッキ履歴を保存
+// player + ShopID + EventID + Seq で識別
 // ========================================
 
 app.post(
@@ -1217,14 +1245,19 @@ app.post(
 
       const {
         dmpId,
+        shopId,
         eventId,
+        seq,
         eventDate,
         deckName
       } = req.body;
 
+
       if (
         !dmpId ||
+        !shopId ||
         !eventId ||
+        !seq ||
         !deckName
       ) {
         return res
@@ -1233,7 +1266,7 @@ app.post(
             success: false,
 
             error:
-              "DMP ID、Event ID、またはデッキ名がありません。"
+              "DMP ID、ShopID、EventID、Seq、またはデッキ名がありません。"
           });
       }
 
@@ -1245,14 +1278,15 @@ app.post(
       const playerResult =
         await pool.query(
           `
-          SELECT id
-          FROM players
-          WHERE dmp_id = $1;
+            SELECT id
+            FROM players
+            WHERE dmp_id = $1;
           `,
           [
             String(dmpId)
           ]
         );
+
 
       if (
         playerResult.rows.length === 0
@@ -1267,35 +1301,42 @@ app.post(
           });
       }
 
+
       const playerId =
         playerResult.rows[0].id;
 
 
       // --------------------------
-      // 既存履歴確認
+      // 同じ選手・同じ大会の
+      // 既存履歴を確認
       // --------------------------
 
       const existingResult =
         await pool.query(
           `
-          SELECT id
+            SELECT id
 
-          FROM deck_history
+            FROM deck_history
 
-          WHERE
-            player_id = $1
-            AND event_id = $2
+            WHERE
+              player_id = $1
+              AND shop_id = $2
+              AND event_id = $3
+              AND seq = $4
 
-          ORDER BY
-            created_at DESC
+            ORDER BY
+              created_at DESC
 
-          LIMIT 1;
+            LIMIT 1;
           `,
           [
             playerId,
-            String(eventId)
+            String(shopId),
+            String(eventId),
+            String(seq)
           ]
         );
+
 
       let result;
 
@@ -1311,17 +1352,17 @@ app.post(
         result =
           await pool.query(
             `
-            UPDATE deck_history
+              UPDATE deck_history
 
-            SET
-              event_date = $1,
-              deck_name = $2,
-              created_at =
-                CURRENT_TIMESTAMP
+              SET
+                event_date = $1,
+                deck_name = $2,
+                created_at =
+                  CURRENT_TIMESTAMP
 
-            WHERE id = $3
+              WHERE id = $3
 
-            RETURNING *;
+              RETURNING *;
             `,
             [
               eventDate || null,
@@ -1339,32 +1380,39 @@ app.post(
         result =
           await pool.query(
             `
-            INSERT INTO deck_history
+              INSERT INTO deck_history
               (
                 player_id,
+                shop_id,
                 event_id,
+                seq,
                 event_date,
                 deck_name
               )
 
-            VALUES
+              VALUES
               (
                 $1,
                 $2,
                 $3,
-                $4
+                $4,
+                $5,
+                $6
               )
 
-            RETURNING *;
+              RETURNING *;
             `,
             [
               playerId,
+              String(shopId),
               String(eventId),
+              String(seq),
               eventDate || null,
               deckName
             ]
           );
       }
+
 
       res.json({
         success: true,
@@ -1374,6 +1422,7 @@ app.post(
       });
 
     } catch (error) {
+
       console.error(
         "デッキ履歴保存エラー:",
         error
