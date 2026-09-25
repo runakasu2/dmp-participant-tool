@@ -8,16 +8,17 @@ app.use(express.static("."));
 
 app.post("/api/participants", async (req, res) => {
   try {
-    const { shopId, eventId } = req.body;
+    const { shopId, eventId, seq } = req.body;
 
-    if (!shopId || !eventId) {
+    if (!shopId || !eventId || !seq) {
       return res.status(400).json({
-        error: "ShopIDまたはEventIDがありません。"
+        error: "ShopID、EventID、またはSeqがありません。"
       });
     }
 
     console.log("ShopID:", shopId);
     console.log("EventID:", eventId);
+    console.log("Seq:", seq);
 
     const participants = [];
     let offset = 0;
@@ -33,11 +34,11 @@ app.post("/api/participants", async (req, res) => {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            shopID: String(shopId),
-            eventID: String(eventId),
-            heldID: "1",
-            offset: offset
-          })
+  shopID: String(shopId),
+  eventID: String(eventId),
+  heldID: String(seq),
+  offset: offset,
+})
         }
       );
 
@@ -50,6 +51,8 @@ app.post("/api/participants", async (req, res) => {
       const result = await response.json();
 
       const datas = JSON.parse(result.d);
+
+      console.log("先頭データ:", datas[0]);
 
       console.log("今回取得:", datas.length, "人");
 

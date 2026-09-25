@@ -10,27 +10,43 @@ button.addEventListener("click", async () => {
 
     const shopId = url.searchParams.get("ShopID");
     const eventId = url.searchParams.get("EventID");
+    const seq = url.searchParams.get("Seq");
 
-    if (!shopId || !eventId) {
-      alert("ShopIDまたはEventIDを取得できませんでした。");
+    console.log("ShopID:", shopId);
+    console.log("EventID:", eventId);
+    console.log("Seq:", seq);
+
+    if (!shopId || !eventId || !seq) {
+      alert("ShopID、EventID、またはSeqを取得できませんでした。");
       return;
     }
 
     // イベント情報を表示
-    document.getElementById("shop-id").textContent = shopId;
-    document.getElementById("event-id").textContent = eventId;
+    const shopElement = document.getElementById("shop-id");
+    const eventElement = document.getElementById("event-id");
 
-    // 参加者一覧ページのURLを作成
+    if (!shopElement || !eventElement) {
+      throw new Error("HTMLのイベント情報表示欄が見つかりません。");
+    }
+
+    shopElement.textContent = shopId;
+    eventElement.textContent = eventId;
+
+    // 参加者一覧ページのURL
     const participantUrl =
       `https://www.dmp-ranking.com/Deckbuild/Event/EventParticipantsList` +
-      `?shop=${shopId}&event=${eventId}&held=1&official=false`;
+      `?shop=${shopId}&event=${eventId}&held=${seq}&official=false`;
 
     const link = document.getElementById("participant-url");
+
+    if (!link) {
+      throw new Error("参加者一覧URLの表示欄が見つかりません。");
+    }
 
     link.href = participantUrl;
     link.textContent = participantUrl;
 
-    // サーバーにShopIDとEventIDを送る
+    // サーバーに送信
     const response = await fetch("/api/participants", {
       method: "POST",
       headers: {
@@ -38,7 +54,8 @@ button.addEventListener("click", async () => {
       },
       body: JSON.stringify({
         shopId,
-        eventId
+        eventId,
+        seq
       })
     });
 
@@ -52,6 +69,11 @@ button.addEventListener("click", async () => {
 
     // 参加者一覧をクリア
     const list = document.getElementById("participant-list");
+
+    if (!list) {
+      throw new Error("参加者一覧の表示欄が見つかりません。");
+    }
+
     list.innerHTML = "";
 
     // 参加者を表に追加
@@ -71,7 +93,14 @@ button.addEventListener("click", async () => {
     });
 
     // 件数を表示
-    document.getElementById("participant-count").textContent =
+    const countElement =
+      document.getElementById("participant-count");
+
+    if (!countElement) {
+      throw new Error("参加者件数の表示欄が見つかりません。");
+    }
+
+    countElement.textContent =
       `取得件数：${data.count}人`;
 
   } catch (error) {
