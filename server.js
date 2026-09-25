@@ -278,11 +278,11 @@ async function fetchResultParticipants({
       });
     }
 
-    if (data.length < 32) {
-      break;
-    }
+    if (data.length < 30) {
+  break;
+}
 
-    offset += 32;
+offset += 30;
   }
 
   return participants;
