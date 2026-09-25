@@ -63,6 +63,49 @@ app.get("/api/setup-db", async (req, res) => {
   }
 });
 
+// 参加者をDBに登録
+app.post("/api/players", async (req, res) => {
+  try {
+    const { dmpId, handleName } = req.body;
+
+    if (!dmpId || !handleName) {
+      return res.status(400).json({
+        success: false,
+        error: "DMP IDまたはハンドルネームがありません。"
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO players (dmp_id, handle_name)
+      VALUES ($1, $2)
+      ON CONFLICT (dmp_id)
+      DO UPDATE SET
+        handle_name = EXCLUDED.handle_name,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *;
+      `,
+      [String(dmpId), handleName]
+    );
+
+    res.json({
+      success: true,
+      player: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("参加者登録エラー:", error);
+
+    res.status(500).json({
+      success: false,
+      error: "参加者をDBに登録できませんでした。",
+      detail: error.message,
+      code: error.code || null,
+      name: error.name || null
+    });
+  }
+});
+
 // DB接続テスト
 app.get("/api/db-test", async (req, res) => {
   try {
