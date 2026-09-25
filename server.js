@@ -112,13 +112,17 @@ app.post("/api/participants", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+  console.error("DB接続エラー:", error);
 
-    res.status(500).json({
-      error: "参加者データの取得中にエラーが発生しました。",
-      detail: error.message
-    });
-  }
+  res.status(500).json({
+    success: false,
+    error: "データベースに接続できませんでした。",
+    detail: error.message || "エラーメッセージがありません",
+    code: error.code || null,
+    name: error.name || null
+  });
+}
+
 });
 
 const HOST = "0.0.0.0";
