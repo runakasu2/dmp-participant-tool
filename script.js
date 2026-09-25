@@ -583,6 +583,56 @@ resultButton.addEventListener(
       ).textContent =
         data.held;
 
+        // --------------------------
+// 保存済みデッキ取得
+// --------------------------
+
+const deckResponse =
+  await fetch(
+    "/api/deck-history?eventId=" +
+    encodeURIComponent(
+      data.eventId
+    )
+  );
+
+const deckData =
+  await deckResponse.json();
+
+if (!deckResponse.ok) {
+  throw new Error(
+    deckData.detail ||
+    deckData.error ||
+    "保存済みデッキを取得できませんでした。"
+  );
+}
+
+
+// --------------------------
+// DMP IDごとに保存済みデッキ整理
+// --------------------------
+
+const savedDecks = {};
+
+deckData.decks.forEach(
+  (deck) => {
+
+    if (
+      !savedDecks[
+        String(
+          deck.dmp_id
+        )
+      ]
+    ) {
+
+      savedDecks[
+        String(
+          deck.dmp_id
+        )
+      ] =
+        deck.deck_name;
+    }
+  }
+);
 
       // --------------------------
       // 結果一覧
@@ -663,21 +713,32 @@ resultButton.addEventListener(
 
 
           const deckInput =
-            document.createElement(
-              "input"
-            );
+  document.createElement(
+    "input"
+  );
+
+deckInput.type =
+  "text";
+
+deckInput.className =
+  "deck-input";
+
+deckInput.placeholder =
+  "デッキ名を入力";
 
 
-          deckInput.type =
-            "text";
+// 保存済みデッキがあれば入力欄に表示
+const savedDeck =
+  savedDecks[
+    String(
+      participant.id
+    )
+  ];
 
-
-          deckInput.className =
-            "deck-input";
-
-
-          deckInput.placeholder =
-            "デッキ名を入力";
+if (savedDeck) {
+  deckInput.value =
+    savedDeck;
+}
 
 
           deckCell.appendChild(
