@@ -181,11 +181,33 @@ app.post("/api/participants", async (req, res) => {
       }
 
       for (const participant of data) {
-        participants.push({
-          id: participant["会員ID"],
-          name: participant["ハンドルネーム"]
-        });
-      }
+  const dmpId = participant["会員ID"];
+  const handleName = participant["ハンドルネーム"];
+
+  participants.push({
+    id: dmpId,
+    name: handleName
+  });
+
+  // 参加者をDBに登録
+  await pool.query(
+    `
+    INSERT INTO players
+      (dmp_id, handle_name)
+    VALUES
+      ($1, $2)
+    ON CONFLICT (dmp_id)
+    DO UPDATE SET
+      handle_name = EXCLUDED.handle_name,
+      updated_at = CURRENT_TIMESTAMP;
+    `,
+    [
+      String(dmpId),
+      handleName
+    ]
+  );
+}
+
 
       if (data.length < 32) {
         break;
