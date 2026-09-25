@@ -23,6 +23,46 @@ const pool = new Pool({
     : false
 });
 
+// DBテーブル作成
+app.get("/api/setup-db", async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS players (
+        id SERIAL PRIMARY KEY,
+        dmp_id VARCHAR(50) NOT NULL UNIQUE,
+        handle_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS deck_history (
+        id SERIAL PRIMARY KEY,
+        player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        event_id VARCHAR(100) NOT NULL,
+        event_date DATE,
+        deck_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    res.json({
+      success: true,
+      message: "DBテーブルを作成しました。"
+    });
+
+  } catch (error) {
+    console.error("DBテーブル作成エラー:", error);
+
+    res.status(500).json({
+      success: false,
+      error: "DBテーブルを作成できませんでした。",
+      detail: error.message,
+      code: error.code || null,
+      name: error.name || null
+    });
+  }
+});
+
 // DB接続テスト
 app.get("/api/db-test", async (req, res) => {
   try {
