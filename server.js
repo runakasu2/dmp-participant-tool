@@ -7,6 +7,15 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static("."));
 
+app.get("/api/env-test", (req, res) => {
+  res.json({
+    databaseUrlExists: !!process.env.DATABASE_URL,
+    databaseUrlLength: process.env.DATABASE_URL
+      ? process.env.DATABASE_URL.length
+      : 0
+  });
+});
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL
