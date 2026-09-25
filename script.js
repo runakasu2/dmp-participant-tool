@@ -34,6 +34,10 @@ button.addEventListener("click", async () => {
     link.href = participantUrl;
     link.textContent = participantUrl;
 
+    // ==============================
+    // 参加者取得
+    // ==============================
+
     const response = await fetch("/api/participants", {
       method: "POST",
       headers: {
@@ -54,7 +58,44 @@ button.addEventListener("click", async () => {
       );
     }
 
+    // ==============================
+    // 保存済みデッキ取得
+    // ==============================
+
+    const deckResponse = await fetch(
+      `/api/deck-history?eventId=${encodeURIComponent(eventId)}`
+    );
+
+    const deckData = await deckResponse.json();
+
+    if (!deckResponse.ok) {
+      throw new Error(
+        deckData.error || "保存済みデッキを取得できませんでした。"
+      );
+    }
+
+    // ==============================
+    // 保存済みデッキをDMP IDで検索できるようにする
+    // ==============================
+
+    const savedDecks = {};
+
+    deckData.decks.forEach((deck) => {
+      // 同じ参加者に複数の履歴がある場合は、
+      // APIがcreated_atの新しい順なので最初のものを採用
+      if (!savedDecks[String(deck.dmp_id)]) {
+        savedDecks[String(deck.dmp_id)] = deck.deck_name;
+      }
+    });
+
+    console.log("保存済みデッキ:", savedDecks);
+
+    // ==============================
+    // 参加者一覧表示
+    // ==============================
+
     const list = document.getElementById("participant-list");
+
     list.innerHTML = "";
 
     data.participants.forEach((participant) => {
@@ -68,21 +109,38 @@ button.addEventListener("click", async () => {
       const nameCell = document.createElement("td");
       nameCell.textContent = participant.name;
 
+      // ==============================
       // デッキ入力
+      // ==============================
+
       const deckCell = document.createElement("td");
 
       const deckInput = document.createElement("input");
+
       deckInput.type = "text";
       deckInput.className = "deck-input";
       deckInput.placeholder = "デッキ名を入力";
 
+      // 保存済みデッキがあれば自動入力
+      const savedDeck =
+        savedDecks[String(participant.id)];
+
+      if (savedDeck) {
+        deckInput.value = savedDeck;
+      }
+
       deckCell.appendChild(deckInput);
 
+      // ==============================
       // 保存
+      // ==============================
+
       const saveCell = document.createElement("td");
 
       const saveButton = document.createElement("button");
-      saveButton.textContent = "保存";
+
+      saveButton.textContent =
+        savedDeck ? "保存済み" : "保存";
 
       saveButton.addEventListener("click", async () => {
         const deckName = deckInput.value.trim();
@@ -104,7 +162,9 @@ button.addEventListener("click", async () => {
             body: JSON.stringify({
               dmpId: participant.id,
               eventId: eventId,
-              eventDate: new Date().toISOString().split("T")[0],
+              eventDate: new Date()
+                .toISOString()
+                .split("T")[0],
               deckName: deckName
             })
           });
@@ -113,11 +173,15 @@ button.addEventListener("click", async () => {
 
           if (!saveResponse.ok) {
             throw new Error(
-              saveData.error || "デッキを保存できませんでした。"
+              saveData.error ||
+              "デッキを保存できませんでした。"
             );
           }
 
           saveButton.textContent = "保存済み";
+
+          // 画面上の保存済みデータも更新
+          savedDecks[String(participant.id)] = deckName;
 
           alert(
             `${participant.name} のデッキを保存しました。\n\n${deckName}`
@@ -159,7 +223,6 @@ button.addEventListener("click", async () => {
   }
 });
 
-
 // ==============================
 // リセットボタン
 // ==============================
@@ -184,3 +247,4 @@ resetButton.addEventListener("click", () => {
   document.getElementById("participant-count").textContent =
     "取得件数：0人";
 });
+
