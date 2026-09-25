@@ -21,34 +21,19 @@ button.addEventListener("click", async () => {
       return;
     }
 
-    // イベント情報を表示
-    const shopElement = document.getElementById("shop-id");
-    const eventElement = document.getElementById("event-id");
-    const seqElement = document.getElementById("seq");
+    document.getElementById("shop-id").textContent = shopId;
+    document.getElementById("event-id").textContent = eventId;
+    document.getElementById("seq").textContent = seq;
 
-    if (!shopElement || !eventElement || !seqElement) {
-      throw new Error("HTMLのイベント情報表示欄が見つかりません。");
-    }
-
-    shopElement.textContent = shopId;
-    eventElement.textContent = eventId;
-    seqElement.textContent = seq;
-
-    // 参加者一覧ページのURL
     const participantUrl =
       `https://www.dmp-ranking.com/Deckbuild/Event/EventParticipantsList` +
       `?shop=${shopId}&event=${eventId}&held=${seq}&official=false`;
 
     const link = document.getElementById("participant-url");
 
-    if (!link) {
-      throw new Error("参加者一覧URLの表示欄が見つかりません。");
-    }
-
     link.href = participantUrl;
     link.textContent = participantUrl;
 
-    // サーバーに送信
     const response = await fetch("/api/participants", {
       method: "POST",
       headers: {
@@ -69,40 +54,99 @@ button.addEventListener("click", async () => {
       );
     }
 
-    // 参加者一覧をクリア
     const list = document.getElementById("participant-list");
-
-    if (!list) {
-      throw new Error("参加者一覧の表示欄が見つかりません。");
-    }
-
     list.innerHTML = "";
 
-    // 参加者を表に追加
     data.participants.forEach((participant) => {
       const row = document.createElement("tr");
 
+      // ID
       const idCell = document.createElement("td");
       idCell.textContent = participant.id;
 
+      // ハンドルネーム
       const nameCell = document.createElement("td");
       nameCell.textContent = participant.name;
 
+      // デッキ入力
+      const deckCell = document.createElement("td");
+
+      const deckInput = document.createElement("input");
+      deckInput.type = "text";
+      deckInput.className = "deck-input";
+      deckInput.placeholder = "デッキ名を入力";
+
+      deckCell.appendChild(deckInput);
+
+      // 保存
+      const saveCell = document.createElement("td");
+
+      const saveButton = document.createElement("button");
+      saveButton.textContent = "保存";
+
+      saveButton.addEventListener("click", async () => {
+        const deckName = deckInput.value.trim();
+
+        if (!deckName) {
+          alert("デッキ名を入力してください。");
+          return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.textContent = "保存中...";
+
+        try {
+          const saveResponse = await fetch("/api/deck-history", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              dmpId: participant.id,
+              eventId: eventId,
+              eventDate: new Date().toISOString().split("T")[0],
+              deckName: deckName
+            })
+          });
+
+          const saveData = await saveResponse.json();
+
+          if (!saveResponse.ok) {
+            throw new Error(
+              saveData.error || "デッキを保存できませんでした。"
+            );
+          }
+
+          saveButton.textContent = "保存済み";
+
+          alert(
+            `${participant.name} のデッキを保存しました。\n\n${deckName}`
+          );
+
+        } catch (error) {
+          console.error(error);
+
+          alert(
+            "デッキを保存できませんでした。\n" +
+            error.message
+          );
+
+          saveButton.disabled = false;
+          saveButton.textContent = "保存";
+        }
+      });
+
+      saveCell.appendChild(saveButton);
+
       row.appendChild(idCell);
       row.appendChild(nameCell);
+      row.appendChild(deckCell);
+      row.appendChild(saveCell);
 
       list.appendChild(row);
     });
 
-    // 件数を表示
-    const countElement =
-      document.getElementById("participant-count");
-
-    if (!countElement) {
-      throw new Error("参加者件数の表示欄が見つかりません。");
-    }
-
-    countElement.textContent =
+    document.getElementById("participant-count").textContent =
       `取得件数：${data.count}人`;
 
   } catch (error) {
@@ -115,6 +159,7 @@ button.addEventListener("click", async () => {
   }
 });
 
+
 // ==============================
 // リセットボタン
 // ==============================
@@ -122,25 +167,20 @@ button.addEventListener("click", async () => {
 const resetButton = document.getElementById("reset");
 
 resetButton.addEventListener("click", () => {
-  // 大会URLをリセット
   document.getElementById("event-url").value = "";
 
-  // イベント情報をリセット
   document.getElementById("shop-id").textContent = "-";
   document.getElementById("event-id").textContent = "-";
   document.getElementById("seq").textContent = "-";
 
-  // 参加者一覧URLをリセット
   const participantUrl =
     document.getElementById("participant-url");
 
   participantUrl.href = "#";
   participantUrl.textContent = "-";
 
-  // 参加者一覧をリセット
   document.getElementById("participant-list").innerHTML = "";
 
-  // 件数をリセット
   document.getElementById("participant-count").textContent =
     "取得件数：0人";
 });
