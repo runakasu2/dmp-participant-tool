@@ -445,21 +445,60 @@ app.post("/api/deck-history", async (req, res) => {
 
     const playerId = playerResult.rows[0].id;
 
-    const result = await pool.query(
-      `
-      INSERT INTO deck_history
-        (player_id, event_id, event_date, deck_name)
-      VALUES
-        ($1, $2, $3, $4)
-      RETURNING *;
-      `,
-      [
-        playerId,
-        String(eventId),
-        eventDate || null,
-        deckName
-      ]
-    );
+    const existingResult = await pool.query(
+  `
+  SELECT id
+  FROM deck_history
+  WHERE player_id = $1
+    AND event_id = $2
+  ORDER BY created_at DESC
+  LIMIT 1;
+  `,
+  [
+    playerId,
+    String(eventId)
+  ]
+);
+
+let result;
+
+if (existingResult.rows.length > 0) {
+  // すでに登録されている場合は上書き
+  result = await pool.query(
+    `
+    UPDATE deck_history
+    SET
+      event_date = $1,
+      deck_name = $2,
+      created_at = CURRENT_TIMESTAMP
+    WHERE id = $3
+    RETURNING *;
+    `,
+    [
+      eventDate || null,
+      deckName,
+      existingResult.rows[0].id
+    ]
+  );
+} else {
+  // 未登録なら新規登録
+  result = await pool.query(
+    `
+    INSERT INTO deck_history
+      (player_id, event_id, event_date, deck_name)
+    VALUES
+      ($1, $2, $3, $4)
+    RETURNING *;
+    `,
+    [
+      playerId,
+      String(eventId),
+      eventDate || null,
+      deckName
+    ]
+  );
+}
+
 
     res.json({
       success: true,
