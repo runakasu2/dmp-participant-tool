@@ -328,6 +328,138 @@ app.post("/api/participants/import", async (req, res) => {
   }
 });
 
+// デッキ履歴を保存
+app.post("/api/deck-history", async (req, res) => {
+  try {
+    const { dmpId, eventId, eventDate, deckName } = req.body;
+
+    if (!dmpId || !eventId || !deckName) {
+      return res.status(400).json({
+        success: false,
+        error: "DMP ID、Event ID、またはデッキ名がありません。"
+      });
+    }
+
+    // DMP IDから参加者を取得
+    const playerResult = await pool.query(
+      `
+      SELECT id
+      FROM players
+      WHERE dmp_id = $1
+      `,
+      [String(dmpId)]
+    );
+
+    if (playerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "参加者がDBに登録されていません。"
+      });
+    }
+
+    const playerId = playerResult.rows[0].id;
+
+    // デッキ履歴を保存
+    const result = await pool.query(
+      `
+      INSERT INTO deck_history
+        (player_id, event_id, event_date, deck_name)
+      VALUES
+        ($1, $2, $3, $4)
+      RETURNING *;
+      `,
+      [
+        playerId,
+        String(eventId),
+        eventDate || null,
+        deckName
+      ]
+    );
+
+    res.json({
+      success: true,
+      deckHistory: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("デッキ履歴保存エラー:", error);
+
+    res.status(500).json({
+      success: false,
+      error: "デッキ履歴を保存できませんでした。",
+      detail: error.message,
+      code: error.code || null,
+      name: error.name || null
+    });
+  }
+});
+
+// デッキ履歴を保存
+app.post("/api/deck-history", async (req, res) => {
+  try {
+    const { dmpId, eventId, eventDate, deckName } = req.body;
+
+    if (!dmpId || !eventId || !deckName) {
+      return res.status(400).json({
+        success: false,
+        error: "DMP ID、Event ID、またはデッキ名がありません。"
+      });
+    }
+
+    // DMP IDから参加者を取得
+    const playerResult = await pool.query(
+      `
+      SELECT id
+      FROM players
+      WHERE dmp_id = $1
+      `,
+      [String(dmpId)]
+    );
+
+    if (playerResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "参加者がDBに登録されていません。"
+      });
+    }
+
+    const playerId = playerResult.rows[0].id;
+
+    // デッキ履歴を保存
+    const result = await pool.query(
+      `
+      INSERT INTO deck_history
+        (player_id, event_id, event_date, deck_name)
+      VALUES
+        ($1, $2, $3, $4)
+      RETURNING *;
+      `,
+      [
+        playerId,
+        String(eventId),
+        eventDate || null,
+        deckName
+      ]
+    );
+
+    res.json({
+      success: true,
+      deckHistory: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("デッキ履歴保存エラー:", error);
+
+    res.status(500).json({
+      success: false,
+      error: "デッキ履歴を保存できませんでした。",
+      detail: error.message,
+      code: error.code || null,
+      name: error.name || null
+    });
+  }
+});
+
 const HOST = "0.0.0.0";
 
 app.listen(PORT, HOST, () => {
