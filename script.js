@@ -17,6 +17,11 @@ const menuResults =
     "menu-results"
   );
 
+  const menuEvents =
+  document.getElementById(
+    "menu-events"
+  );
+
 const pageParticipants =
   document.getElementById(
     "page-participants"
@@ -27,6 +32,10 @@ const pageResults =
     "page-results"
   );
 
+const pageEvents =
+  document.getElementById(
+    "page-events"
+  );
 
 menuParticipants.addEventListener(
   "click",
@@ -38,11 +47,19 @@ menuParticipants.addEventListener(
     pageResults.style.display =
       "none";
 
+    pageEvents.style.display =
+      "none";
+
+
     menuParticipants.classList.add(
       "active"
     );
 
     menuResults.classList.remove(
+      "active"
+    );
+
+    menuEvents.classList.remove(
       "active"
     );
   }
@@ -59,6 +76,10 @@ menuResults.addEventListener(
     pageResults.style.display =
       "block";
 
+    pageEvents.style.display =
+      "none";
+
+
     menuParticipants.classList.remove(
       "active"
     );
@@ -66,6 +87,41 @@ menuResults.addEventListener(
     menuResults.classList.add(
       "active"
     );
+
+    menuEvents.classList.remove(
+      "active"
+    );
+  }
+);
+
+menuEvents.addEventListener(
+  "click",
+  async () => {
+
+    pageParticipants.style.display =
+      "none";
+
+    pageResults.style.display =
+      "none";
+
+    pageEvents.style.display =
+      "block";
+
+
+    menuParticipants.classList.remove(
+      "active"
+    );
+
+    menuResults.classList.remove(
+      "active"
+    );
+
+    menuEvents.classList.add(
+      "active"
+    );
+
+
+    await loadEvents();
   }
 );
 
@@ -838,7 +894,7 @@ if (savedDeck) {
     deckName:
       deckName
   })
-  
+
                     }
                   );
 
@@ -1042,5 +1098,242 @@ resultResetButton.addEventListener(
       "result-count"
     ).textContent =
       "取得件数：0人";
+  }
+);
+
+// ========================================
+// 大会一覧
+// ========================================
+
+const reloadEventsButton =
+  document.getElementById(
+    "reload-events"
+  );
+
+
+async function loadEvents() {
+
+  const list =
+    document.getElementById(
+      "event-list"
+    );
+
+  const count =
+    document.getElementById(
+      "event-count"
+    );
+
+
+  list.innerHTML =
+    `
+      <tr>
+        <td colspan="6">
+          読み込み中...
+        </td>
+      </tr>
+    `;
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/events"
+      );
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        data.error ||
+        "大会一覧を取得できませんでした。"
+      );
+    }
+
+
+    list.innerHTML =
+      "";
+
+
+    count.textContent =
+      "保存大会数：" +
+      data.count +
+      "件";
+
+
+    if (
+      !data.events ||
+      data.events.length === 0
+    ) {
+
+      list.innerHTML =
+        `
+          <tr>
+            <td colspan="6">
+              保存されている大会はありません。
+            </td>
+          </tr>
+        `;
+
+      return;
+    }
+
+
+    data.events.forEach(
+      (event) => {
+
+        const row =
+          document.createElement(
+            "tr"
+          );
+
+
+        // 開催日
+        const dateCell =
+          document.createElement(
+            "td"
+          );
+
+        if (event.event_date) {
+
+          const date =
+            new Date(
+              event.event_date
+            );
+
+          dateCell.textContent =
+            date.toLocaleDateString(
+              "ja-JP",
+              {
+                timeZone:
+                  "Asia/Tokyo"
+              }
+            );
+
+        } else {
+
+          dateCell.textContent =
+            "-";
+        }
+
+
+        // 大会名
+        const nameCell =
+          document.createElement(
+            "td"
+          );
+
+        nameCell.textContent =
+          event.event_name ||
+          "大会名未取得";
+
+
+        // 参加人数
+        const participantCell =
+          document.createElement(
+            "td"
+          );
+
+        participantCell.textContent =
+          event.participant_count +
+          "人";
+
+
+        // ShopID
+        const shopCell =
+          document.createElement(
+            "td"
+          );
+
+        shopCell.textContent =
+          event.shop_id;
+
+
+        // EventID
+        const eventCell =
+          document.createElement(
+            "td"
+          );
+
+        eventCell.textContent =
+          event.event_id;
+
+
+        // Seq
+        const seqCell =
+          document.createElement(
+            "td"
+          );
+
+        seqCell.textContent =
+          event.seq;
+
+
+        row.appendChild(
+          dateCell
+        );
+
+        row.appendChild(
+          nameCell
+        );
+
+        row.appendChild(
+          participantCell
+        );
+
+        row.appendChild(
+          shopCell
+        );
+
+        row.appendChild(
+          eventCell
+        );
+
+        row.appendChild(
+          seqCell
+        );
+
+
+        list.appendChild(
+          row
+        );
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+    count.textContent =
+      "保存大会数：-";
+
+    list.innerHTML =
+      `
+        <tr>
+          <td colspan="6">
+            大会一覧を取得できませんでした。
+          </td>
+        </tr>
+      `;
+
+    alert(
+      "大会一覧を取得できませんでした。\n" +
+      error.message
+    );
+  }
+}
+
+
+reloadEventsButton.addEventListener(
+  "click",
+  async () => {
+
+    await loadEvents();
   }
 );

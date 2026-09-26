@@ -60,41 +60,138 @@ function parseEventDetailUrl(detailUrl) {
 // ========================================
 
 function extractEventDate(html) {
-  const normalized = html
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&#x2F;/gi, "/")
-    .replace(/&#47;/gi, "/")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ");
+
+  const normalized =
+    html
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&#x2F;/gi, "/")
+      .replace(/&#47;/gi, "/")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ");
+
 
   const patterns = [
+
     /開催日\s*[：:]\s*(\d{4})\s*[\/\-年]\s*(\d{1,2})\s*[\/\-月]\s*(\d{1,2})\s*日?/,
 
     /開催日.{0,80}?(\d{4})\s*[\/\-年]\s*(\d{1,2})\s*[\/\-月]\s*(\d{1,2})\s*日?/,
 
     /(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})/
+
   ];
 
+
   for (const pattern of patterns) {
-    const match = normalized.match(pattern);
+
+    const match =
+      normalized.match(
+        pattern
+      );
+
 
     if (match) {
+
       const year =
         match[1];
 
       const month =
-        match[2].padStart(2, "0");
+        match[2].padStart(
+          2,
+          "0"
+        );
 
       const day =
-        match[3].padStart(2, "0");
+        match[3].padStart(
+          2,
+          "0"
+        );
+
 
       return {
+
         year,
+
         eventDate:
           `${year}-${month}-${day}`
+
       };
     }
   }
+
+
+  return null;
+}
+
+
+
+// ========================================
+// 大会詳細HTMLから大会名を取得
+// ========================================
+
+function extractEventName(html) {
+
+  const text =
+    html
+      .replace(
+        /<script[\s\S]*?<\/script>/gi,
+        " "
+      )
+      .replace(
+        /<style[\s\S]*?<\/style>/gi,
+        " "
+      )
+      .replace(
+        /<[^>]+>/g,
+        "\n"
+      )
+      .replace(
+        /&nbsp;/gi,
+        " "
+      )
+      .replace(
+        /&amp;/gi,
+        "&"
+      )
+      .replace(
+        /&#39;/gi,
+        "'"
+      )
+      .replace(
+        /&quot;/gi,
+        '"'
+      )
+      .replace(
+        /\r/g,
+        ""
+      );
+
+
+  const lines =
+    text
+      .split("\n")
+      .map(
+        line =>
+          line.trim()
+      )
+      .filter(Boolean);
+
+
+  const dateIndex =
+    lines.findIndex(
+      line =>
+        line.includes(
+          "開催日"
+        )
+    );
+
+
+  if (dateIndex > 0) {
+
+    return lines[
+      dateIndex - 1
+    ];
+  }
+
 
   return null;
 }
@@ -140,11 +237,34 @@ async function fetchEventDetail(detailUrl) {
     );
   }
 
-  const html =
-    await response.text();
+  const buffer =
+  await response.arrayBuffer();
+
+const decoder =
+  new TextDecoder(
+    "shift_jis"
+  );
+
+const html =
+  decoder.decode(
+    buffer
+  );
+
 
   const dateInfo =
     extractEventDate(html);
+
+    const eventName =
+  extractEventName(
+    html
+  );
+
+  if (eventName) {
+    console.log(
+      "取得した大会名:",
+      eventName
+    );
+  }
 
   if (!dateInfo) {
     throw new Error(
@@ -164,6 +284,9 @@ async function fetchEventDetail(detailUrl) {
     encodeURIComponent(seq);
 
   return {
+
+    eventName,
+    
     year:
       dateInfo.year,
 
@@ -253,10 +376,7 @@ async function fetchResultParticipants({
         JSON.parse(data);
     }
 
-    console.log(
-      "大会結果取得:",
-      data
-    );
+  
 
     if (
       !Array.isArray(data) ||
@@ -371,6 +491,46 @@ await pool.query(`
   ALTER TABLE deck_history
   ADD COLUMN IF NOT EXISTS seq VARCHAR(100);
 `);
+
+// ========================================
+// 大会情報テーブル
+// ShopID + EventID + Seq で大会を識別
+// ========================================
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+
+    shop_id VARCHAR(100)
+      NOT NULL,
+
+    event_id VARCHAR(100)
+      NOT NULL,
+
+    seq VARCHAR(100)
+      NOT NULL,
+
+    event_date DATE,
+
+    event_name VARCHAR(255),
+
+    participant_count INTEGER
+      DEFAULT 0,
+
+    created_at TIMESTAMP
+      DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP
+      DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (
+      shop_id,
+      event_id,
+      seq
+    )
+  );
+`);
+
 
 
       await pool.query(`
@@ -984,6 +1144,71 @@ app.post(
           eventInfo
         );
 
+        // --------------------------
+// 大会情報をDBへ保存
+// --------------------------
+
+await pool.query(
+  `
+    INSERT INTO events
+    (
+      shop_id,
+      event_id,
+      seq,
+      event_date,
+      event_name,
+      participant_count
+    )
+
+    VALUES
+    (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5,
+      $6
+    )
+
+    ON CONFLICT
+      (shop_id, event_id, seq)
+
+    DO UPDATE SET
+      event_date =
+        EXCLUDED.event_date,
+
+      event_name =
+        EXCLUDED.event_name,
+
+      participant_count =
+        EXCLUDED.participant_count,
+
+      updated_at =
+        CURRENT_TIMESTAMP;
+  `,
+  [
+    String(
+      eventInfo.shopId
+    ),
+
+    String(
+      eventInfo.eventId
+    ),
+
+    String(
+      eventInfo.held
+    ),
+
+    eventInfo.eventDate ||
+      null,
+
+    eventInfo.eventName ||
+      null,
+
+    participants.length
+  ]
+);
+
 
       // --------------------------
       // 結果参加者をDB登録
@@ -1441,6 +1666,68 @@ app.post(
   }
 );
 
+// ========================================
+// 保存済み大会一覧を取得
+// ========================================
+
+app.get(
+  "/api/events",
+  async (req, res) => {
+    try {
+
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              shop_id,
+              event_id,
+              seq,
+              event_date,
+              event_name,
+              participant_count,
+              created_at,
+              updated_at
+
+            FROM events
+
+            ORDER BY
+              event_date DESC,
+              id DESC;
+          `
+        );
+
+
+      res.json({
+        success: true,
+
+        count:
+          result.rows.length,
+
+        events:
+          result.rows
+      });
+
+    } catch (error) {
+
+      console.error(
+        "大会一覧取得エラー:",
+        error
+      );
+
+
+      res.status(500).json({
+        success: false,
+
+        error:
+          "大会一覧を取得できませんでした。",
+
+        detail:
+          error.message
+      });
+    }
+  }
+);
 
 // ========================================
 // サーバー起動
