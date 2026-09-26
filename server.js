@@ -1730,6 +1730,288 @@ app.get(
 );
 
 // ========================================
+// 大会ごとのデッキ母数・使用者を取得
+// ========================================
+
+app.get(
+  "/api/event-deck-summary",
+  async (req, res) => {
+    try {
+
+      const {
+        shopId,
+        eventId,
+        seq
+      } = req.query;
+
+
+      if (
+        !shopId ||
+        !eventId ||
+        !seq
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            error:
+              "ShopID、EventID、またはSeqがありません。"
+          });
+      }
+
+
+      // --------------------------
+      // 大会情報取得
+      // --------------------------
+
+      const eventResult =
+        await pool.query(
+          `
+            SELECT
+              id,
+              shop_id,
+              event_id,
+              seq,
+              event_date,
+              event_name,
+              participant_count
+
+            FROM events
+
+            WHERE
+              shop_id = $1
+              AND event_id = $2
+              AND seq = $3
+
+            LIMIT 1;
+          `,
+          [
+            String(shopId),
+            String(eventId),
+            String(seq)
+          ]
+        );
+
+
+      if (
+        eventResult.rows.length === 0
+      ) {
+        return res
+          .status(404)
+          .json({
+            success: false,
+            error:
+              "大会情報が見つかりませんでした。"
+          });
+      }
+
+
+      const event =
+        eventResult.rows[0];
+
+
+      // --------------------------
+      // この大会のデッキ・使用者取得
+      // --------------------------
+
+      const deckResult =
+        await pool.query(
+          `
+            SELECT
+              dh.deck_name,
+              p.dmp_id,
+              p.handle_name
+
+            FROM deck_history dh
+
+            INNER JOIN players p
+              ON dh.player_id = p.id
+
+            WHERE
+              dh.shop_id = $1
+              AND dh.event_id = $2
+              AND dh.seq = $3
+
+            ORDER BY
+              dh.deck_name ASC,
+              p.handle_name ASC;
+          `,
+          [
+            String(shopId),
+            String(eventId),
+            String(seq)
+          ]
+        );
+
+
+      // --------------------------
+      // デッキごとにまとめる
+      // --------------------------
+
+      const deckMap =
+        new Map();
+
+
+      deckResult.rows.forEach(
+        (row) => {
+
+          const deckName =
+            row.deck_name;
+
+
+          if (
+            !deckMap.has(
+              deckName
+            )
+          ) {
+
+            deckMap.set(
+              deckName,
+              {
+                deckName:
+                  deckName,
+
+                count:
+                  0,
+
+                players:
+                  []
+              }
+            );
+          }
+
+
+          const deck =
+            deckMap.get(
+              deckName
+            );
+
+
+          deck.count +=
+            1;
+
+
+          deck.players.push({
+            dmpId:
+              row.dmp_id,
+
+            handleName:
+              row.handle_name
+          });
+        }
+      );
+
+
+      const participantCount =
+        Number(
+          event.participant_count
+        ) || 0;
+
+
+      const registeredCount =
+        deckResult.rows.length;
+
+
+      const unregisteredCount =
+        Math.max(
+          0,
+          participantCount -
+          registeredCount
+        );
+
+
+      const decks =
+        Array.from(
+          deckMap.values()
+        )
+          .map(
+            (deck) => {
+
+              const percentage =
+                participantCount > 0
+                  ? (
+                      deck.count /
+                      participantCount *
+                      100
+                    ).toFixed(1)
+                  : "0.0";
+
+
+              return {
+                ...deck,
+
+                percentage:
+                  percentage
+              };
+            }
+          )
+          .sort(
+            (a, b) => {
+
+              if (
+                b.count !==
+                a.count
+              ) {
+
+                return (
+                  b.count -
+                  a.count
+                );
+              }
+
+
+              return (
+                a.deckName.localeCompare(
+                  b.deckName,
+                  "ja"
+                )
+              );
+            }
+          );
+
+
+      res.json({
+        success: true,
+
+        event:
+          event,
+
+        participantCount:
+          participantCount,
+
+        registeredCount:
+          registeredCount,
+
+        unregisteredCount:
+          unregisteredCount,
+
+        decks:
+          decks
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "大会デッキ母数取得エラー:",
+        error
+      );
+
+
+      res.status(500).json({
+        success: false,
+
+        error:
+          "大会のデッキ母数を取得できませんでした。",
+
+        detail:
+          error.message
+      });
+    }
+  }
+);
+
+// ========================================
 // サーバー起動
 // ========================================
 
