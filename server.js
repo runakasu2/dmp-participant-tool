@@ -2012,6 +2012,305 @@ app.get(
 );
 
 // ========================================
+// プレイヤー検索
+// DMP ID / ハンドルネーム
+// ========================================
+
+app.get(
+  "/api/player-search",
+  async (req, res) => {
+    try {
+
+      const query =
+        String(
+          req.query.q || ""
+        ).trim();
+
+
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "検索キーワードを入力してください。"
+        });
+      }
+
+
+      const result =
+        await pool.query(
+          `
+            SELECT
+              id,
+              dmp_id,
+              handle_name
+
+            FROM players
+
+            WHERE
+              dmp_id = $1
+              OR handle_name ILIKE $2
+
+            ORDER BY
+              CASE
+                WHEN dmp_id = $1
+                  THEN 0
+                WHEN LOWER(handle_name) =
+                     LOWER($3)
+                  THEN 1
+                ELSE 2
+              END,
+              handle_name ASC
+
+            LIMIT 50;
+          `,
+          [
+            query,
+            "%" + query + "%",
+            query
+          ]
+        );
+
+
+      res.json({
+        success: true,
+        count:
+          result.rows.length,
+        players:
+          result.rows
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "プレイヤー検索エラー:",
+        error
+      );
+
+
+      res.status(500).json({
+        success: false,
+        error:
+          "プレイヤーを検索できませんでした。",
+        detail:
+          error.message
+      });
+    }
+  }
+);
+
+
+// ========================================
+// プレイヤー個人情報・デッキ履歴
+// ========================================
+
+app.get(
+  "/api/player-detail",
+  async (req, res) => {
+    try {
+
+      const dmpId =
+        String(
+          req.query.dmpId || ""
+        ).trim();
+
+
+      if (!dmpId) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "DMP IDがありません。"
+        });
+      }
+
+
+      // --------------------------
+      // プレイヤー情報
+      // --------------------------
+
+      const playerResult =
+        await pool.query(
+          `
+            SELECT
+              id,
+              dmp_id,
+              handle_name
+
+            FROM players
+
+            WHERE dmp_id = $1
+
+            LIMIT 1;
+          `,
+          [
+            dmpId
+          ]
+        );
+
+
+      if (
+        playerResult.rows.length === 0
+      ) {
+        return res.status(404).json({
+          success: false,
+          error:
+            "プレイヤーが見つかりませんでした。"
+        });
+      }
+
+
+      const player =
+        playerResult.rows[0];
+
+
+      // --------------------------
+      // 大会・デッキ履歴
+      // --------------------------
+
+      const historyResult =
+        await pool.query(
+          `
+            SELECT
+              dh.shop_id,
+              dh.event_id,
+              dh.seq,
+              dh.event_date,
+              dh.deck_name,
+              e.event_name,
+              e.participant_count
+
+            FROM deck_history dh
+
+            LEFT JOIN events e
+              ON e.shop_id = dh.shop_id
+              AND e.event_id = dh.event_id
+              AND e.seq = dh.seq
+
+            WHERE
+              dh.player_id = $1
+
+            ORDER BY
+              dh.event_date DESC NULLS LAST,
+              dh.created_at DESC;
+          `,
+          [
+            player.id
+          ]
+        );
+
+
+      // --------------------------
+      // 使用デッキ集計
+      // --------------------------
+
+      const deckSummaryResult =
+        await pool.query(
+          `
+            SELECT
+              deck_name,
+              COUNT(*)::int AS count
+
+            FROM deck_history
+
+            WHERE
+              player_id = $1
+
+            GROUP BY
+              deck_name
+
+            ORDER BY
+              COUNT(*) DESC,
+              deck_name ASC;
+          `,
+          [
+            player.id
+          ]
+        );
+
+
+      const deckSummary =
+        deckSummaryResult.rows.map(
+          (deck) => ({
+            deckName:
+              deck.deck_name,
+
+            count:
+              Number(deck.count)
+          })
+        );
+
+
+      const history =
+        historyResult.rows.map(
+          (item) => ({
+            shopId:
+              item.shop_id,
+
+            eventId:
+              item.event_id,
+
+            seq:
+              item.seq,
+
+            eventDate:
+              item.event_date,
+
+            eventName:
+              item.event_name,
+
+            participantCount:
+              Number(
+                item.participant_count
+              ) || 0,
+
+            deckName:
+              item.deck_name
+          })
+        );
+
+
+      res.json({
+        success: true,
+
+        player: {
+          dmpId:
+            player.dmp_id,
+
+          handleName:
+            player.handle_name
+        },
+
+        historyCount:
+          history.length,
+
+        deckSummary:
+          deckSummary,
+
+        history:
+          history
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "プレイヤー詳細取得エラー:",
+        error
+      );
+
+
+      res.status(500).json({
+        success: false,
+        error:
+          "プレイヤー情報を取得できませんでした。",
+        detail:
+          error.message
+      });
+    }
+  }
+);
+
+// ========================================
 // サーバー起動
 // ========================================
 

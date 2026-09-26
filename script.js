@@ -22,6 +22,11 @@ const menuEvents =
     "menu-events"
   );
 
+const menuPlayers =
+  document.getElementById(
+    "menu-players"
+  );
+
 
 const pageParticipants =
   document.getElementById(
@@ -43,106 +48,149 @@ const pageEventDetail =
     "page-event-detail"
   );
 
+const pagePlayers =
+  document.getElementById(
+    "page-players"
+  );
+
+const pagePlayerDetail =
+  document.getElementById(
+    "page-player-detail"
+  );
+
 
 // ========================================
-// メニュー切り替え
+// 全ページを非表示
+// ========================================
+
+function hideAllPages() {
+
+  pageParticipants.style.display =
+    "none";
+
+  pageResults.style.display =
+    "none";
+
+  pageEvents.style.display =
+    "none";
+
+  pageEventDetail.style.display =
+    "none";
+
+  pagePlayers.style.display =
+    "none";
+
+  pagePlayerDetail.style.display =
+    "none";
+}
+
+
+// ========================================
+// 全メニューのactiveを解除
+// ========================================
+
+function clearActiveMenus() {
+
+  menuParticipants.classList.remove(
+    "active"
+  );
+
+  menuResults.classList.remove(
+    "active"
+  );
+
+  menuEvents.classList.remove(
+    "active"
+  );
+
+  menuPlayers.classList.remove(
+    "active"
+  );
+}
+
+
+// ========================================
+// 参加表明
 // ========================================
 
 menuParticipants.addEventListener(
   "click",
   () => {
 
+    hideAllPages();
+    clearActiveMenus();
+
     pageParticipants.style.display =
       "block";
 
-    pageResults.style.display =
-      "none";
-
-    pageEvents.style.display =
-      "none";
-
-    pageEventDetail.style.display =
-      "none";
-
-
     menuParticipants.classList.add(
-      "active"
-    );
-
-    menuResults.classList.remove(
-      "active"
-    );
-
-    menuEvents.classList.remove(
       "active"
     );
   }
 );
 
+
+// ========================================
+// 大会結果
+// ========================================
 
 menuResults.addEventListener(
   "click",
   () => {
 
-    pageParticipants.style.display =
-      "none";
+    hideAllPages();
+    clearActiveMenus();
 
     pageResults.style.display =
       "block";
 
-    pageEvents.style.display =
-      "none";
-
-    pageEventDetail.style.display =
-      "none";
-
-
-    menuParticipants.classList.remove(
-      "active"
-    );
-
     menuResults.classList.add(
-      "active"
-    );
-
-    menuEvents.classList.remove(
       "active"
     );
   }
 );
 
 
+// ========================================
+// 大会一覧
+// ========================================
+
 menuEvents.addEventListener(
   "click",
   async () => {
 
-    pageParticipants.style.display =
-      "none";
-
-    pageResults.style.display =
-      "none";
+    hideAllPages();
+    clearActiveMenus();
 
     pageEvents.style.display =
       "block";
-
-    pageEventDetail.style.display =
-      "none";
-
-
-    menuParticipants.classList.remove(
-      "active"
-    );
-
-    menuResults.classList.remove(
-      "active"
-    );
 
     menuEvents.classList.add(
       "active"
     );
 
-
     await loadEvents();
+  }
+);
+
+
+// ========================================
+// プレイヤー
+// ========================================
+
+menuPlayers.addEventListener(
+  "click",
+  () => {
+
+    hideAllPages();
+    clearActiveMenus();
+
+    pagePlayers.style.display =
+      "block";
+
+    menuPlayers.classList.add(
+      "active"
+    );
   }
 );
 
@@ -1700,48 +1748,84 @@ async function openEventDetail(
 
 
         deck.players.forEach(
-          (player) => {
+  (player) => {
 
-            const userRow =
-              document.createElement(
-                "tr"
-              );
-
-
-            const idCell =
-              document.createElement(
-                "td"
-              );
+    const userRow =
+      document.createElement(
+        "tr"
+      );
 
 
-            idCell.textContent =
-              player.dmpId;
+    // --------------------------
+    // クリックできるようにする
+    // --------------------------
+
+    userRow.style.cursor =
+      "pointer";
+
+    userRow.title =
+      "クリックしてプレイヤー詳細を表示";
 
 
-            const handleCell =
-              document.createElement(
-                "td"
-              );
+    // --------------------------
+    // DMP ID
+    // --------------------------
+
+    const idCell =
+      document.createElement(
+        "td"
+      );
 
 
-            handleCell.textContent =
-              player.handleName;
+    idCell.textContent =
+      player.dmpId;
 
 
-            userRow.appendChild(
-              idCell
-            );
+    // --------------------------
+    // ハンドルネーム
+    // --------------------------
 
-            userRow.appendChild(
-              handleCell
-            );
+    const handleCell =
+      document.createElement(
+        "td"
+      );
 
 
-            tbody.appendChild(
-              userRow
-            );
-          }
+    handleCell.textContent =
+      player.handleName;
+
+
+    // --------------------------
+    // 個人ページへ移動
+    // --------------------------
+
+    userRow.addEventListener(
+      "click",
+      (event) => {
+
+        event.stopPropagation();
+
+        openPlayerDetail(
+          player.dmpId
         );
+      }
+    );
+
+
+    userRow.appendChild(
+      idCell
+    );
+
+    userRow.appendChild(
+      handleCell
+    );
+
+
+    tbody.appendChild(
+      userRow
+    );
+  }
+);
 
 
         playerTable.appendChild(
@@ -1976,6 +2060,519 @@ backEventsButton.addEventListener(
     );
 
     menuEvents.classList.add(
+      "active"
+    );
+  }
+);
+
+// ========================================
+// プレイヤー検索
+// ========================================
+
+const playerSearchButton =
+  document.getElementById(
+    "player-search-button"
+  );
+
+const playerSearchInput =
+  document.getElementById(
+    "player-search-input"
+  );
+
+
+async function searchPlayers() {
+
+  const query =
+    playerSearchInput.value.trim();
+
+  if (!query) {
+    alert(
+      "DMP IDまたはハンドルネームを入力してください。"
+    );
+
+    return;
+  }
+
+
+  const list =
+    document.getElementById(
+      "player-search-list"
+    );
+
+  const count =
+    document.getElementById(
+      "player-search-count"
+    );
+
+
+  list.innerHTML =
+    `
+      <tr>
+        <td colspan="2">
+          検索中...
+        </td>
+      </tr>
+    `;
+
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/player-search?q=" +
+        encodeURIComponent(query)
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        data.error ||
+        "プレイヤーを検索できませんでした。"
+      );
+    }
+
+
+    list.innerHTML =
+      "";
+
+
+    count.textContent =
+      "検索結果：" +
+      data.count +
+      "人";
+
+
+    if (
+      !data.players ||
+      data.players.length === 0
+    ) {
+
+      list.innerHTML =
+        `
+          <tr>
+            <td colspan="2">
+              該当するプレイヤーが見つかりませんでした。
+            </td>
+          </tr>
+        `;
+
+      return;
+    }
+
+
+    data.players.forEach(
+      (player) => {
+
+        const row =
+          document.createElement(
+            "tr"
+          );
+
+
+        row.style.cursor =
+          "pointer";
+
+        row.title =
+          "クリックしてプレイヤー詳細を表示";
+
+
+        const idCell =
+          document.createElement(
+            "td"
+          );
+
+        idCell.textContent =
+          player.dmp_id;
+
+
+        const nameCell =
+          document.createElement(
+            "td"
+          );
+
+        nameCell.textContent =
+          player.handle_name;
+
+
+        row.appendChild(
+          idCell
+        );
+
+        row.appendChild(
+          nameCell
+        );
+
+
+        row.addEventListener(
+          "click",
+          () => {
+
+            openPlayerDetail(
+              player.dmp_id
+            );
+          }
+        );
+
+
+        list.appendChild(
+          row
+        );
+      }
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    list.innerHTML =
+      `
+        <tr>
+          <td colspan="2">
+            検索に失敗しました。
+          </td>
+        </tr>
+      `;
+
+
+    alert(
+      "プレイヤーを検索できませんでした。\n" +
+      error.message
+    );
+  }
+}
+
+
+// ========================================
+// 検索ボタン
+// ========================================
+
+playerSearchButton.addEventListener(
+  "click",
+  async () => {
+
+    await searchPlayers();
+  }
+);
+
+
+// ========================================
+// Enterキーでも検索
+// ========================================
+
+playerSearchInput.addEventListener(
+  "keydown",
+  async (event) => {
+
+    if (event.key === "Enter") {
+
+      await searchPlayers();
+    }
+  }
+);
+
+// ========================================
+// プレイヤー詳細表示
+// ========================================
+
+async function openPlayerDetail(
+  dmpId
+) {
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/player-detail?dmpId=" +
+        encodeURIComponent(dmpId)
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        data.error ||
+        "プレイヤー情報を取得できませんでした。"
+      );
+    }
+
+
+    // --------------------------
+    // ページ切り替え
+    // --------------------------
+
+    hideAllPages();
+    clearActiveMenus();
+
+    pagePlayerDetail.style.display =
+      "block";
+
+    menuPlayers.classList.add(
+      "active"
+    );
+
+
+    // --------------------------
+    // プレイヤー情報
+    // --------------------------
+
+    document.getElementById(
+      "player-detail-name"
+    ).textContent =
+      data.player.handleName;
+
+
+    document.getElementById(
+      "player-detail-id"
+    ).textContent =
+      "DMP ID：" +
+      data.player.dmpId;
+
+
+    // --------------------------
+    // 使用デッキ集計
+    // --------------------------
+
+    const deckList =
+      document.getElementById(
+        "player-deck-summary"
+      );
+
+
+    deckList.innerHTML =
+      "";
+
+
+    if (
+      !data.deckSummary ||
+      data.deckSummary.length === 0
+    ) {
+
+      deckList.innerHTML =
+        `
+          <tr>
+            <td colspan="2">
+              使用デッキの記録がありません。
+            </td>
+          </tr>
+        `;
+
+    } else {
+
+      data.deckSummary.forEach(
+        (deck) => {
+
+          const row =
+            document.createElement(
+              "tr"
+            );
+
+
+          const deckCell =
+            document.createElement(
+              "td"
+            );
+
+          deckCell.textContent =
+            deck.deckName;
+
+
+          const countCell =
+            document.createElement(
+              "td"
+            );
+
+          countCell.textContent =
+            deck.count + "回";
+
+
+          row.appendChild(
+            deckCell
+          );
+
+          row.appendChild(
+            countCell
+          );
+
+
+          deckList.appendChild(
+            row
+          );
+        }
+      );
+    }
+
+
+    // --------------------------
+    // 大会履歴
+    // --------------------------
+
+    const historyList =
+      document.getElementById(
+        "player-history-list"
+      );
+
+
+    const historyCount =
+      document.getElementById(
+        "player-history-count"
+      );
+
+
+    historyList.innerHTML =
+      "";
+
+
+    historyCount.textContent =
+      "登録済み大会：" +
+      data.historyCount +
+      "件";
+
+
+    if (
+      !data.history ||
+      data.history.length === 0
+    ) {
+
+      historyList.innerHTML =
+        `
+          <tr>
+            <td colspan="3">
+              大会履歴がありません。
+            </td>
+          </tr>
+        `;
+
+    } else {
+
+      data.history.forEach(
+        (history) => {
+
+          const row =
+            document.createElement(
+              "tr"
+            );
+
+
+          // 開催日
+          const dateCell =
+            document.createElement(
+              "td"
+            );
+
+
+          if (history.eventDate) {
+
+            const date =
+              new Date(
+                history.eventDate
+              );
+
+
+            dateCell.textContent =
+              date.toLocaleDateString(
+                "ja-JP"
+              );
+
+          } else {
+
+            dateCell.textContent =
+              "-";
+          }
+
+
+          // 大会名
+          const eventCell =
+            document.createElement(
+              "td"
+            );
+
+          eventCell.textContent =
+            history.eventName ||
+            "大会名未登録";
+
+
+          // 使用デッキ
+          const deckCell =
+            document.createElement(
+              "td"
+            );
+
+          deckCell.textContent =
+            history.deckName;
+
+
+          row.appendChild(
+            dateCell
+          );
+
+          row.appendChild(
+            eventCell
+          );
+
+          row.appendChild(
+            deckCell
+          );
+
+
+          historyList.appendChild(
+            row
+          );
+        }
+      );
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      error
+    );
+
+
+    alert(
+      "プレイヤー情報を取得できませんでした。\n" +
+      error.message
+    );
+  }
+}
+
+
+// ========================================
+// プレイヤー検索へ戻る
+// ========================================
+
+const backPlayersButton =
+  document.getElementById(
+    "back-players"
+  );
+
+
+backPlayersButton.addEventListener(
+  "click",
+  () => {
+
+    hideAllPages();
+    clearActiveMenus();
+
+    pagePlayers.style.display =
+      "block";
+
+    menuPlayers.classList.add(
       "active"
     );
   }

@@ -43,6 +43,13 @@
         大会一覧
       </button>
 
+      <button
+  id="menu-players"
+  class="menu-button"
+>
+  プレイヤー
+</button>
+
     </nav>
 
   </header>
@@ -385,6 +392,169 @@
       </section>
 
     </div>
+
+<!-- ============================== -->
+<!-- プレイヤー検索ページ -->
+<!-- ============================== -->
+
+<div
+  id="page-players"
+  class="page"
+  style="display: none;"
+>
+
+  <div class="page-title-row">
+
+    <div>
+      <h2>
+        プレイヤー検索
+      </h2>
+
+      <p class="page-description">
+        DMP IDまたはハンドルネームから検索できます。
+      </p>
+    </div>
+
+  </div>
+
+
+  <div class="input-area">
+
+    <input
+      type="text"
+      id="player-search-input"
+      placeholder="DMP ID / ハンドルネーム"
+    >
+
+    <button id="player-search-button">
+      検索
+    </button>
+
+  </div>
+
+
+  <section>
+
+    <p id="player-search-count">
+      検索結果：0人
+    </p>
+
+    <div class="table-scroll">
+
+      <table>
+
+        <thead>
+          <tr>
+            <th>DMP ID</th>
+            <th>ハンドルネーム</th>
+          </tr>
+        </thead>
+
+        <tbody id="player-search-list">
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+</div>
+
+
+<!-- ============================== -->
+<!-- プレイヤー個人ページ -->
+<!-- ============================== -->
+
+<div
+  id="page-player-detail"
+  class="page"
+  style="display: none;"
+>
+
+  <div class="page-title-row">
+
+    <div>
+
+      <h2 id="player-detail-name">
+        プレイヤー
+      </h2>
+
+      <p
+        id="player-detail-id"
+        class="page-description"
+      >
+        DMP ID：-
+      </p>
+
+    </div>
+
+    <button id="back-players">
+      検索へ戻る
+    </button>
+
+  </div>
+
+
+  <section>
+
+    <h2>
+      使用デッキ集計
+    </h2>
+
+    <div class="table-scroll">
+
+      <table>
+
+        <thead>
+          <tr>
+            <th>デッキ名</th>
+            <th>使用回数</th>
+          </tr>
+        </thead>
+
+        <tbody id="player-deck-summary">
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+
+  <section>
+
+    <h2>
+      大会履歴
+    </h2>
+
+    <p id="player-history-count">
+      登録済み大会：0件
+    </p>
+
+    <div class="table-scroll">
+
+      <table>
+
+        <thead>
+          <tr>
+            <th>開催日</th>
+            <th>大会名</th>
+            <th>使用デッキ</th>
+          </tr>
+        </thead>
+
+        <tbody id="player-history-list">
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+</div>
 
   </main>
 
