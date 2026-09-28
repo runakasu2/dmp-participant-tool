@@ -72,7 +72,7 @@ memoImportApply.addEventListener('click',async()=>{
   if(!memoImportTarget || !memoImportPreview || memoImportApply.disabled) return;
   const target=memoImportTarget, preview=memoImportPreview;
   // Disable individual saves and event switching while the atomic import is running.
-  const controls=[...document.querySelectorAll('#result-list input, #result-list button'),
+  const controls=[...document.querySelectorAll('#result-list input, #result-list select, #result-list button'),
     document.getElementById('get-result'),document.getElementById('result-reset'),memoImportOpen,memoImportApply,memoImportCancel,
     ...memoImportChoices.values()];
   const states=controls.map(control=>control.disabled);
@@ -81,8 +81,13 @@ memoImportApply.addEventListener('click',async()=>{
   memoImportStatus.textContent='反映中...';
   try {
     const result=await memoImportRequest('/api/deck-memo/import',{...target.key,archiveId:preview.archive.id,token:preview.token,overwriteDmpIds});
+    if (result.decks) {
+      for (const input of target.inputs.values()) input.setDeckOptions?.(result.decks);
+    }
     for(const change of result.changes) {
-      const input=target.inputs.get(String(change.dmpId));if(input) input.value=change.deckName;
+      const input=target.inputs.get(String(change.dmpId));
+      if(input?.setSavedDeck) input.setSavedDeck(change.deckId,change.deckName);
+      else if(input) input.value=change.deckName;
     }
     memoImportStatus.textContent='反映しました。新規：'+result.insertedCount+'件 ／ 上書き：'+result.updatedCount+'件';
   } catch(error) {memoImportStatus.textContent=error.message;}

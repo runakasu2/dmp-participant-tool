@@ -50,19 +50,10 @@
         const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
       }
       const cell = document.createElement('td');
-      const select = document.createElement('select');
+      const select = createDeckSelect(decks, {deckId:player.deckId, deckName:player.deckName, label:player.name + 'の使用デッキ'});
       selects.push(select);
-      select.setAttribute('aria-label', player.name + 'の使用デッキ');
-      for (const deck of [{id: '', name: '未選択'}, ...decks]) {
-        const option = document.createElement('option'); option.value = String(deck.id); option.textContent = deck.name; select.appendChild(option);
-      }
-      // A rename/merge concurrent with loading should not silently look like an empty memo.
-      if (player.deckId !== null && !decks.some(deck => deck.id === player.deckId)) {
-        const option = document.createElement('option'); option.value = String(player.deckId); option.textContent = player.deckName; select.appendChild(option);
-      }
-      select.value = player.deckId === null ? '' : String(player.deckId);
       const saved = document.createElement('small'); saved.setAttribute('role', 'status');
-      saved.textContent = player.deckId === null ? '未登録' : '保存済み';
+      saved.textContent = select.unmatchedDeckName ? '保存済み：' + select.unmatchedDeckName + '（一覧を再取得してください）' : player.deckId === null ? '未登録' : '保存済み';
       select.addEventListener('change', async () => {
         const previous = player.deckId;
         select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; saved.textContent = '保存中...';
@@ -89,7 +80,7 @@
     try {
       const [matching, decks] = await Promise.all([
         getJson('/api/deck-memo/matching', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: input.value.trim(), detailUrl: dmpInput.value.trim()})}),
-        getJson('/api/decks', {cache: 'no-store'})
+        getJson('/api/decks?sort=usage', {cache: 'no-store'})
       ]);
       current = matching;
       render(decks.decks);

@@ -1,3 +1,4 @@
+const {getDeckCatalog} = require(require("node:path").join(__dirname, "deck-catalog.js"));
 const express = require("express");
 const { Pool } = require("pg");
 
@@ -829,10 +830,7 @@ function predictDeck(recentDecks, manual, unavailable = false) {
 
 async function loadPredictionData(shopId, eventId, seq) {
   const [decks, overrides] = await Promise.all([
-    pool.query(`SELECT d.id, d.name,
-      COALESCE((SELECT json_agg(a.alias ORDER BY a.alias)
-        FROM deck_aliases a WHERE a.deck_id = d.id), '[]') AS aliases
-      FROM decks d ORDER BY d.name`),
+    getDeckCatalog(pool, true),
     pool.query(`
       SELECT p.dmp_id, prediction.manual_deck_id, d.name AS deck_name
       FROM event_deck_predictions prediction
@@ -1650,15 +1648,25 @@ app.get(
 
 const historyStore = require(require("node:path").join(__dirname, "deck-history-store.js"));
 app.post("/api/deck-history", async (req, res) => {
-  const {dmpId, shopId, eventId, seq, eventDate, deckName} = req.body || {};
-  if (!dmpId || !shopId || !eventId || !seq || typeof deckName !== "string" || !deckName.trim()) {
+  const {dmpId, shopId, eventId, seq, eventDate, deckName, deckId} = req.body || {};
+  if (!dmpId || !shopId || !eventId || !seq ||
+      (deckId !== undefined ? !Number.isInteger(deckId) || deckId <= 0 || deckId > 2147483647 : typeof deckName !== "string" || !deckName.trim())) {
     return res.status(400).json({success:false,error:"DMP ID、ShopID、EventID、Seq、デッキ名を指定してください。"});
   }
   let client, releaseError;
   try {
     client = await pool.connect();
     await historyStore.beginHistoryTransaction(client);
-    const normalizedDeckName = await historyStore.normalizeDeckName(client, deckName);
+    let normalizedDeckName;
+    if (deckId !== undefined) {
+      const selected = await client.query("SELECT name FROM decks WHERE id = $1", [deckId]);
+      if (!selected.rows.length) {
+        const error = new Error("デッキが見つかりません。大会結果を再取得してください。"); error.status = 404; throw error;
+      }
+      normalizedDeckName = selected.rows[0].name;
+    } else {
+      normalizedDeckName = await historyStore.normalizeDeckName(client, deckName);
+    }
     const player = await client.query("SELECT id FROM players WHERE dmp_id = $1", [String(dmpId)]);
     if (!player.rows.length) {
       const error = new Error("参加者がDBに登録されていません。"); error.status = 404; throw error;
@@ -2332,30 +2340,7 @@ app.get(
   "/api/decks",
   async (req, res) => {
     try {
-      const result =
-        await pool.query(`
-          SELECT
-            d.id,
-            d.name,
-            COALESCE(
-              json_agg(
-                da.alias
-                ORDER BY da.alias
-              )
-              FILTER (
-                WHERE da.id IS NOT NULL
-              ),
-              '[]'
-            ) AS aliases
-          FROM decks d
-          LEFT JOIN deck_aliases da
-            ON d.id = da.deck_id
-          GROUP BY
-            d.id,
-            d.name
-          ORDER BY
-            d.name ASC;
-        `);
+      const result = await getDeckCatalog(pool, req.query?.sort === "usage");
 
       res.json({
         success: true,

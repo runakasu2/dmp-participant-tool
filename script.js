@@ -833,6 +833,10 @@ resultButton.addEventListener(
       // DMP IDごとに保存済みデッキ整理
       // --------------------------
 
+      const masterResponse = await fetch("/api/decks?sort=usage", {cache:"no-store"});
+      const masterData = await masterResponse.json();
+      if (!masterResponse.ok) throw new Error(masterData.error || "デッキ一覧を取得できませんでした。");
+
       const savedDecks = {};
 
 
@@ -925,38 +929,17 @@ resultButton.addEventListener(
             );
 
 
-          const deckInput =
-            document.createElement(
-              "input"
-            );
-
-
+          const savedDeck = savedDecks[String(participant.id)];
+          const deckInput = createDeckSelect(masterData.decks, {deckName:savedDeck, label:participant.name + "の使用デッキ"});
           resultDeckInputs.set(String(participant.id), deckInput);
-
-          deckInput.type =
-            "text";
-
-          deckInput.className =
-            "deck-input";
-
-          deckInput.placeholder =
-            "デッキ名を入力";
-
-
-          const savedDeck =
-            savedDecks[
-              String(
-                participant.id
-              )
-            ];
-
-
-          if (savedDeck) {
-
-            deckInput.value =
-              savedDeck;
-          }
-
+          const deckNote = document.createElement("small");
+          deckNote.textContent = deckInput.unmatchedDeckName
+            ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）。正式デッキを選んで保存するまで履歴は維持されます。" : "";
+          deckInput.onSavedDeck = () => {
+            deckNote.textContent = deckInput.unmatchedDeckName
+              ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）" : "";
+          };
+          deckCell.appendChild(deckNote);
 
           deckCell.appendChild(
             deckInput
@@ -984,19 +967,12 @@ resultButton.addEventListener(
             "click",
             async () => {
 
-              const deckName =
-                deckInput.value.trim();
-
-
-              if (!deckName) {
-
-                alert(
-                  "デッキ名を入力してください。"
-                );
-
+              const deckId = Number(deckInput.value);
+              if (!deckInput.value) {
+                alert("デッキを選択してください。未選択では履歴を変更しません。");
                 return;
               }
-
+              deckInput.disabled = true;
 
               saveButton.disabled =
                 true;
@@ -1036,8 +1012,7 @@ resultButton.addEventListener(
                           eventDate:
                             data.eventDate,
 
-                          deckName:
-                            deckName
+                          deckId: deckId
                         })
                     }
                   );
@@ -1057,6 +1032,9 @@ resultButton.addEventListener(
                 }
 
 
+                deckInput.setSavedDeck(deckId, saveData.normalizedDeckName);
+                deckNote.textContent = "";
+
                 saveButton.textContent =
                   "保存済み";
 
@@ -1064,7 +1042,7 @@ resultButton.addEventListener(
                 alert(
                   participant.name +
                   " のデッキを保存しました。\n\n" +
-                  deckName +
+                  saveData.normalizedDeckName +
                   "\n大会開催日：" +
                   data.eventDate
                 );
@@ -1088,10 +1066,15 @@ resultButton.addEventListener(
 
                 saveButton.textContent =
                   "保存";
+              } finally {
+                deckInput.disabled = false;
+                saveButton.disabled = false;
               }
             }
           );
 
+
+          deckInput.addEventListener("change", () => { saveButton.textContent = "保存"; });
 
           saveCell.appendChild(
             saveButton
@@ -3111,7 +3094,8 @@ editArea.appendChild(
         placeholder.value = "";
         placeholder.textContent = "統合先を選択してください";
         mergeSelect.appendChild(placeholder);
-        data.decks.filter(candidate => candidate.id !== deck.id).forEach(candidate => {
+        data.decks.filter(candidate => candidate.id !== deck.id)
+          .sort((a, b) => b.usage_count - a.usage_count).forEach(candidate => {
           const option = document.createElement("option");
           option.value = String(candidate.id);
           option.textContent = candidate.name;

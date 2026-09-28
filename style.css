@@ -265,3 +265,7 @@ hr {
 #memo-import select { min-width: 140px; padding: 10px; font-size: 16px; }
 #memo-import button { margin: 8px 4px 0 0; }
 #memo-import button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+#result-list .deck-select { min-width: 160px; max-width: 300px; width: 100%; padding: 12px; font-size: 16px; }
+#result-list small { display: block; max-width: 300px; }
+#results { overflow-x: auto; }

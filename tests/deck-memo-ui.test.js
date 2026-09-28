@@ -15,7 +15,7 @@ test('selection autosaves to loaded admin, summary updates; failed save restores
   let stored=null, fail=false, requests=0, savedBody;
   const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
     requests++;
-    if(url==='/api/decks') return {ok:true,json:async()=>({success:true,decks:[{id:1,name:'A'}]})};
+    if(url==='/api/decks?sort=usage') return {ok:true,json:async()=>({success:true,decks:[{id:1,name:'A'}]})};
     if(url==='/api/deck-memo') {
       savedBody=JSON.parse(options.body);
       if(!fail)stored=savedBody.deckId;
@@ -23,6 +23,7 @@ test('selection autosaves to loaded admin, summary updates; failed save restores
     }
     return {ok:true,json:async()=>({success:true,sourceUrl:'https://nojigikucs.com/?admin=first',adminKey:'first',latestRound:2,participants:[{dmpId:'101',name:'名前',table:1,deckId:stored,deckName:stored?'A':null}]})};
   }});
+  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
   const refresh=elements.get('memo-refresh');
   elements.get('memo-url').value='https://nojigikucs.com/?admin=first';
@@ -52,6 +53,7 @@ test('saved list and detail can be opened without either external API or current
       participants:[{dmpId:'101',name:'当時の名前',deckName:'A'},{dmpId:'102',name:'B',deckName:null}]}:
       {success:true,events:[{id:7,event_name:'保存済みCS',event_date:'2026-09-28',registered_count:1,participant_count:2}]}};
   }});
+  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
   await elements.get('memo-archives-reload').handlers.click();
   const link=elements.get('memo-archives-list').children[0].children[1].children[0];
@@ -70,7 +72,8 @@ test('reset sends deletion only after both confirmations',async()=>{
       return{ok:true,json:async()=>url.endsWith('/7')?{success:true,event:{id:7,eventName:'大会A',eventDate:'2026-09-28'},participants:[],participantCount:0,registeredCount:0}:
         {success:true,events:[{id:7,event_name:'大会A',event_date:'2026-09-28',registered_count:0,participant_count:0}]}};
     }});
-    vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
+    vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
     await elements.get('memo-archives-reload').handlers.click();
     await elements.get('memo-archives-list').children[0].children[1].children[0].handlers.click();
     await elements.get('memo-archive-reset').handlers.click();

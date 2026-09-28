@@ -1,3 +1,4 @@
+const {getDeckCatalog} = require('./deck-catalog');
 const {createHash} = require('node:crypto');
 const {beginHistoryTransaction, saveDeckHistory} = require('./deck-history-store');
 const failure = (message, status=400) => Object.assign(new Error(message), {status});
@@ -88,10 +89,11 @@ function installImportRoutes(app, pool) {
         if(player.category!=='new' && !(player.category==='conflict'&&overwrite.has(player.dmpId))) continue;
         // memoDeckName comes exclusively from the current deck master joined by deck_id.
         await saveDeckHistory(client,{...key,playerId:player.playerId,eventDate:preview.archive.eventDate,deckName:player.memoDeckName});
-        changes.push({dmpId:player.dmpId,deckName:player.memoDeckName,category:player.category});
+        changes.push({dmpId:player.dmpId,deckId:player.deckId,deckName:player.memoDeckName,category:player.category});
       }
+      const masters = await getDeckCatalog(client, true);
       await client.query('COMMIT');
-      res.json({success:true,changes,insertedCount:changes.filter(p=>p.category==='new').length,
+      res.json({success:true,decks:masters.rows,changes,insertedCount:changes.filter(p=>p.category==='new').length,
         updatedCount:changes.filter(p=>p.category==='conflict').length});
     } catch(err) {
       if(client){try{await client.query('ROLLBACK');}catch(rollbackError){releaseError=rollbackError;}}
