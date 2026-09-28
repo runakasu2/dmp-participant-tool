@@ -1,3 +1,5 @@
+const {parseTcgUrl} = require('./matching-providers/tcg-meister');
+const {loadTcgMemo, updateTcgMemo} = require('./deck-memo-tcg');
 // Verified against the public nojigikucs.com application bundle (2026-09-28).
 // Never derive this destination from user input; never follow redirects.
 const API_BASE = 'https://axirq5jhn9.execute-api.ap-northeast-1.amazonaws.com/v1/';
@@ -68,16 +70,33 @@ function latestMatching(matches, users = []) {
   return {latestRound, participants};
 }
 
+function detectProvider(value) {
+  let url;
+  try {url = new URL(value);} catch {throw fail('マッチングサイトのURLを入力してください。');}
+  if (url.hostname === 'tcg.sfc-jpn.jp') return parseTcgUrl(value);
+  return {provider:'nojigiku', ...parseMemoUrl(value)};
+}
+
 function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null) {
+  // Old clients must not keep creating draft-level DMP mappings.
+  app.put('/api/deck-memo/player-mapping', (req, res) => {
+    res.status(410).json({success:false,error:'DMP対応は大会結果のデッキメモ反映プレビューで選択してください。画面を再読み込みしてください。'});
+  });
   app.post('/api/deck-memo/matching', async (req, res) => {
     try {
-      const {adminKey, sourceUrl} = parseMemoUrl(req.body?.url);
+      const source = detectProvider(req.body?.url);
+      const {adminKey, sourceUrl} = source;
       let detail = null;
       if (req.body?.detailUrl !== undefined) {
         if (!req.body.detailUrl || !fetchEventDetail) throw fail('DMPランキング大会詳細URLを入力してください。');
         try { detail = await fetchEventDetail(req.body.detailUrl); }
         catch { throw fail('DMPランキングの大会情報を取得できませんでした。URLを確認してください。', 502); }
         if (!detail.eventName || !detail.eventDate) throw fail('DMPランキングから大会名・開催日を取得できませんでした。', 502);
+      }
+      if (source.provider === 'tcg_meister') {
+        const result = await loadTcgMemo({source, detail, pool, fetchImpl});
+        res.set?.('Cache-Control', 'no-store');
+        return res.json(result);
       }
       const [matches, users] = await Promise.all([
         fetchSource('get-cs-info', adminKey, fetchImpl),
@@ -125,7 +144,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
       const participants = matching.participants.map(player => ({...player,
         deckId: byId.get(player.dmpId)?.deck_id ?? null, deckName: byId.get(player.dmpId)?.deck_name ?? null}));
       res.set?.('Cache-Control', 'no-store');
-      res.json({success: true, event: detail, adminKey, sourceUrl, memoEventId: event.rows[0].id,
+      res.json({success: true, provider: 'nojigiku', event: detail, adminKey, sourceUrl, memoEventId: event.rows[0].id,
         latestRound: matching.latestRound, participants, participantCount: participants.length,
         registeredCount: participants.filter(player => player.deckId !== null).length,
         warning: users.failed ? '参加者名一覧を取得できなかったため、対戦表の名前を表示しています。' : null});
@@ -138,7 +157,9 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
   app.put('/api/deck-memo', async (req, res) => {
     let client, active = false, releaseError;
     try {
-      const {adminKey} = parseMemoUrl(req.body?.url);
+      const source = detectProvider(req.body?.url);
+      if (source.provider === 'tcg_meister') return res.json(await updateTcgMemo(pool, source, req.body));
+      const {adminKey} = source;
       const {dmpId, deckId, memoEventId} = req.body || {};
       if (memoEventId !== undefined && (!Number.isInteger(memoEventId) || memoEventId <= 0 || memoEventId > 2147483647)) throw fail('メモ大会IDが不正です。');
       if (typeof dmpId !== 'string' || !/^\d{1,50}$/.test(dmpId) || /^0+$/.test(dmpId) ||
@@ -181,4 +202,4 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
   });
 }
 
-module.exports = {parseMemoUrl, fetchSource, latestMatching, installMemoRoutes};
+module.exports = {detectProvider, parseMemoUrl, fetchSource, latestMatching, installMemoRoutes};

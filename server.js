@@ -1,3 +1,4 @@
+const {fetchEventParticipants} = require(require('node:path').join(__dirname, 'dmp-participants.js'));
 const {getDeckCatalog} = require(require("node:path").join(__dirname, "deck-catalog.js"));
 const express = require("express");
 const { Pool } = require("pg");
@@ -421,18 +422,21 @@ async function fetchResultParticipants({
   year,
   shopId,
   eventId,
-  held
+  held,
+  signal
 }) {
   const participants = [];
 
   let offset = 0;
 
   while (true) {
+    if (offset >= 30000) throw new Error("DMP結果の取得件数が上限を超えました。");
     const response =
       await fetch(
         "https://www.dmp-ranking.com/Deckbuild/Event/EventResult.aspx/GetResultRanking",
         {
           method: "POST",
+          signal,
 
           headers: {
             "Content-Type":
@@ -696,6 +700,10 @@ await pool.query(`
 
       await pool.query(require("node:fs").readFileSync(
         require("node:path").join(__dirname, "migrations/004_deck_memo_archives.sql"), "utf8"
+      ));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/005_tcg_meister_memos.sql"), "utf8"
       ));
 
       res.json({
@@ -983,94 +991,7 @@ app.post(
           });
       }
 
-      const participants = [];
-
-      let offset = 0;
-
-      while (true) {
-
-        const response =
-          await fetch(
-            "https://www.dmp-ranking.com/Deckbuild/Event/EventParticipantsList.aspx/GetResultRanking",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json; charset=UTF-8"
-              },
-
-              body: JSON.stringify({
-                shopID:
-                  String(shopId),
-
-                eventID:
-                  String(eventId),
-
-                heldID:
-                  String(seq),
-
-                offset:
-                  offset
-              })
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `DMPランキング取得エラー: HTTP ${response.status}`
-          );
-        }
-
-        const result =
-          await response.json();
-
-        let data =
-          result.d;
-
-        if (
-          typeof data === "string"
-        ) {
-          data =
-            JSON.parse(data);
-        }
-
-        if (
-          !Array.isArray(data) ||
-          data.length === 0
-        ) {
-          break;
-        }
-
-        for (
-          const participant of data
-        ) {
-          const dmpId =
-            participant["会員ID"];
-
-          const handleName =
-            participant[
-              "ハンドルネーム"
-            ];
-
-          participants.push({
-            id:
-              dmpId,
-
-            name:
-              handleName
-          });
-
-        }
-
-        if (
-          data.length < 32
-        ) {
-          break;
-        }
-
-        offset += 32;
-      }
+      const participants = await fetchEventParticipants({shopId, eventId, seq}, globalThis.fetch);
 
       // 同一IDをまとめ、参加者を一括保存する。
       const players = new Map();
@@ -2743,6 +2664,11 @@ app.post("/api/decks/:id/merge", async (req, res) => {
       "UPDATE deck_memo_archive_players SET deck_id = $1, updated_at = CURRENT_TIMESTAMP WHERE deck_id = $2",
       [targetId, sourceId]
     );
+    await client.query(
+      "UPDATE deck_memo_external_players SET deck_id = $1, updated_at = CURRENT_TIMESTAMP WHERE deck_id = $2",
+      [targetId, sourceId]
+    );
+
     await client.query("UPDATE decks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1", [targetId]);
     await client.query("DELETE FROM decks WHERE id = $1", [sourceId]);
     await client.query("COMMIT");
@@ -2778,6 +2704,8 @@ require(require("node:path").join(__dirname, "deck-memo.js")).installMemoRoutes(
 require(require("node:path").join(__dirname, "deck-memo-archives.js")).installArchiveRoutes(app, pool);
 
 require(require("node:path").join(__dirname, "deck-memo-import.js")).installImportRoutes(app, pool);
+
+require(require('node:path').join(__dirname, 'event-reset.js')).installEventResetRoutes(app, pool);
 
 app.listen(
   PORT,

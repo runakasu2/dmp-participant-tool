@@ -12,7 +12,7 @@ function installArchiveRoutes(app, pool) {
       client = await pool.connect();
       await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ'); active = true;
       const event = await client.query(`
-        SELECT m.id, m.admin_key, m.source_url, e.id AS event_record_id,
+        SELECT m.id, m.source, m.admin_key, m.source_url, e.id AS event_record_id,
           e.event_name, e.event_date::text AS event_date
         FROM deck_memo_events m JOIN events e ON e.id = m.event_record_id
         WHERE m.id = $1
@@ -20,7 +20,12 @@ function installArchiveRoutes(app, pool) {
       if (!event.rows.length) throw error('DMP大会に紐付いたメモが見つかりません。再取得してください。',404);
       const info = event.rows[0];
       if (!info.event_name || !info.event_date) throw error('大会名・開催日を取得し直してください。',400);
-      const roster = await client.query(`
+      const roster = info.source === 'tcg_meister' ? await client.query(`
+        SELECT participant_key, NULL::varchar(50) AS dmp_id, handle_name, raw_no AS entry_no, table_no, round,
+          NULL::integer AS player_id, deck_id, internal_participant_id, raw_no, bye,
+          NULL::text AS match_status, NULL::text AS dmp_handle_name
+        FROM deck_memo_external_players WHERE memo_event_id = $1
+      `, [memoEventId]) : await client.query(`
         SELECT r.dmp_id, r.handle_name, r.entry_no, r.table_no, r.round,
           p.id AS player_id, m.deck_id
         FROM deck_memo_roster r
@@ -33,26 +38,37 @@ function installArchiveRoutes(app, pool) {
       // Merge locks decks before updating archive rows. Use the same order.
       if (deckIds.length) await client.query('SELECT id FROM decks WHERE id = ANY($1::int[]) ORDER BY id FOR KEY SHARE', [deckIds]);
       const archive = await client.query(`
-        INSERT INTO deck_memo_archives (event_record_id, event_name, event_date, admin_key, source_url)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO deck_memo_archives (event_record_id, event_name, event_date, admin_key, source_url, source)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (event_record_id) DO UPDATE SET
           event_name = EXCLUDED.event_name, event_date = EXCLUDED.event_date,
           admin_key = EXCLUDED.admin_key, source_url = EXCLUDED.source_url, updated_at = CURRENT_TIMESTAMP
+        WHERE deck_memo_archives.source = EXCLUDED.source AND deck_memo_archives.admin_key = EXCLUDED.admin_key
         RETURNING id
-      `, [info.event_record_id, info.event_name, info.event_date, info.admin_key, info.source_url]);
+      `, [info.event_record_id, info.event_name, info.event_date, info.admin_key, info.source_url, info.source || 'nojigiku']);
+      if (!archive.rows.length) throw error('このDMP大会は別の対戦サイト・大会キーで保存済みです。元のURLを確認してください。',409);
       const archiveId = archive.rows[0].id;
+      // Clear old mappings only for the participants being explicitly re-snapshotted.
+      // This supports swapping/correcting mappings without transient unique violations.
+      const snapshots = roster.rows.map(p => ({...p,participant_key:p.participant_key || 'dmp:' + p.dmp_id,bye:p.bye || false}));
+      await client.query(`UPDATE deck_memo_archive_players SET dmp_id=NULL,player_id=NULL
+        WHERE archive_id=$1 AND participant_key=ANY($2::text[])`, [archiveId,snapshots.map(p=>p.participant_key)]);
       // Absent/dropped players remain. Explicitly unselected decks become NULL.
       await client.query(`
         INSERT INTO deck_memo_archive_players
-          (archive_id, dmp_id, player_id, handle_name, entry_no, table_no, round, deck_id)
-        SELECT $1::integer, x.dmp_id, x.player_id, x.handle_name, x.entry_no, x.table_no, x.round, x.deck_id
+          (archive_id, dmp_id, player_id, handle_name, entry_no, table_no, round, deck_id,
+           participant_key, internal_participant_id, raw_no, bye, match_status, dmp_handle_name)
+        SELECT $1::integer, x.dmp_id, x.player_id, x.handle_name, x.entry_no, x.table_no, x.round, x.deck_id,
+          x.participant_key, x.internal_participant_id, x.raw_no, x.bye, x.match_status, x.dmp_handle_name
         FROM jsonb_to_recordset($2::jsonb) AS x(dmp_id varchar(50), player_id integer,
-          handle_name text, entry_no text, table_no integer, round integer, deck_id integer)
-        ON CONFLICT (archive_id, dmp_id) DO UPDATE SET
+          handle_name text, entry_no text, table_no integer, round integer, deck_id integer, participant_key text, internal_participant_id text, raw_no text, bye boolean, match_status text, dmp_handle_name text)
+        ON CONFLICT (archive_id, participant_key) DO UPDATE SET
+          dmp_id = EXCLUDED.dmp_id, internal_participant_id = EXCLUDED.internal_participant_id,
+          raw_no = EXCLUDED.raw_no, bye = EXCLUDED.bye, match_status = EXCLUDED.match_status, dmp_handle_name = EXCLUDED.dmp_handle_name,
           player_id = EXCLUDED.player_id, handle_name = EXCLUDED.handle_name,
           entry_no = EXCLUDED.entry_no, table_no = EXCLUDED.table_no, round = EXCLUDED.round,
           deck_id = EXCLUDED.deck_id, updated_at = CURRENT_TIMESTAMP
-      `, [archiveId, JSON.stringify(roster.rows)]);
+      `, [archiveId, JSON.stringify(snapshots)]);
       await client.query('COMMIT'); active = false;
       res.json({success:true,archiveId});
     } catch (err) {
@@ -97,7 +113,7 @@ function installArchiveRoutes(app, pool) {
       const result = await pool.query(`
         SELECT a.id, a.event_name, a.event_date::text AS event_date, a.admin_key,
           a.created_at, a.updated_at,
-          COUNT(p.dmp_id)::int AS participant_count, COUNT(p.deck_id)::int AS registered_count
+          COUNT(p.participant_key)::int AS participant_count, COUNT(p.deck_id)::int AS registered_count
         FROM deck_memo_archives a
         LEFT JOIN deck_memo_archive_players p ON p.archive_id = a.id
         GROUP BY a.id ORDER BY a.event_date DESC, a.id DESC
@@ -115,7 +131,8 @@ function installArchiveRoutes(app, pool) {
       // One DB statement keeps metadata and participants on the same snapshot.
       const result = await pool.query(`
         SELECT a.*, a.event_date::text AS saved_date, e.shop_id, e.event_id, e.seq,
-          p.dmp_id, p.handle_name, p.entry_no, p.table_no, p.round, p.deck_id, d.name AS deck_name
+          p.participant_key, p.internal_participant_id, p.raw_no, p.bye, p.match_status, p.dmp_handle_name,
+          p.dmp_id, p.player_id, p.handle_name, p.entry_no, p.table_no, p.round, p.deck_id, d.name AS deck_name
         FROM deck_memo_archives a JOIN events e ON e.id = a.event_record_id
         LEFT JOIN deck_memo_archive_players p ON p.archive_id = a.id
         LEFT JOIN decks d ON d.id = p.deck_id
@@ -124,10 +141,12 @@ function installArchiveRoutes(app, pool) {
       `,[Number(req.params.id)]);
       if(!result.rows.length) return res.status(404).json({success:false,error:'保存済み大会が見つかりません。'});
       const a=result.rows[0];
-      const participants=result.rows.filter(p=>p.dmp_id != null).map(p=>({dmpId:p.dmp_id,name:p.handle_name,
+      const participants=result.rows.filter(p=>p.participant_key != null || p.dmp_id != null).map(p=>({dmpId:p.dmp_id,playerId:p.player_id,name:p.handle_name,
+        participantKey:p.participant_key,internalParticipantId:p.internal_participant_id,rawNo:p.raw_no,
+        bye:p.bye,matchStatus:p.match_status,dmpHandleName:p.dmp_handle_name,
         entryNo:p.entry_no,table:p.table_no,round:p.round,deckId:p.deck_id,deckName:p.deck_name}));
       res.json({success:true,event:{id:a.id,shopId:a.shop_id,eventId:a.event_id,seq:a.seq,
-        eventName:a.event_name,eventDate:a.saved_date,adminKey:a.admin_key,sourceUrl:a.source_url,
+        eventName:a.event_name,eventDate:a.saved_date,provider:a.source,tid:a.source==='tcg_meister'?a.admin_key:null,adminKey:a.admin_key,sourceUrl:a.source_url,
         createdAt:a.created_at,updatedAt:a.updated_at},participants,
         participantCount:participants.length,registeredCount:participants.filter(p=>p.deckId!==null).length});
     } catch(err) {

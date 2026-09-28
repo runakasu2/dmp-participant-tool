@@ -259,7 +259,7 @@
           <p id="memo-import-counts"></p>
           <p>競合は「既存を維持」が初期設定です。画面内で未保存の入力は比較対象になりません。</p>
           <div class="table-scroll"><table>
-            <thead><tr><th>分類</th><th>DMP ID</th><th>ハンドルネーム</th><th>現在</th><th>デッキメモ</th><th>処理</th></tr></thead>
+            <thead><tr><th>分類</th><th>DMP ID</th><th>ハンドルネーム / メモHN</th><th>現在</th><th>デッキメモ</th><th>処理</th></tr></thead>
             <tbody id="memo-import-rows"></tbody>
           </table></div>
           <button id="memo-import-cancel">キャンセル</button>
@@ -346,6 +346,7 @@
             <thead>
 
               <tr>
+                <th id="event-selection-heading" hidden>選択</th>
                 <th>開催日</th>
                 <th>大会名</th>
                 <th>参加人数</th>
@@ -361,6 +362,21 @@
 
           </table>
 
+        </div>
+
+        <div class="event-reset-area">
+          <button id="enter-event-delete" class="danger-button" disabled>大会を削除</button>
+          <div id="event-delete-selection" hidden>
+            <p>削除する大会を選択してください。</p>
+            <p id="event-selection-count" role="status">選択中：0件</p>
+            <div class="event-reset-actions">
+            <button id="select-all-events" disabled>すべて選択</button>
+            <button id="clear-event-selection" disabled>選択解除</button>
+              <button id="cancel-event-delete">キャンセル</button>
+              <button id="reset-selected-events" class="danger-button" disabled>選択した大会を削除</button>
+            </div>
+          </div>
+          <p id="event-reset-status" role="status"></p>
         </div>
 
       </section>
@@ -669,7 +685,7 @@
     <div id="page-deck-memo" class="page" style="display: none;">
       <h2>デッキメモ</h2>
       <p>大会中に確認した使用デッキのメモです。確定した大会履歴には反映しません。</p>
-      <label for="memo-url">マッチングサイトURL</label>
+      <label for="memo-url">マッチングサイトURL（のじぎく / TCGマイスター）</label>
       <div class="input-area">
         <input id="memo-url" type="url" placeholder="https://nojigikucs.com/?admin=...">
       </div>
@@ -687,7 +703,7 @@
       <p>大会として保存すると、外部サイトのリセット後も下の一覧から確認できます。再保存時は取得済みの全参加者を更新し、後のラウンドにいない選手も保持します。</p>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>卓</th><th>DMP ID</th><th>ハンドルネーム</th><th>使用デッキ</th></tr></thead>
+          <thead><tr id="memo-table-head"><th>卓</th><th>ハンドルネーム</th><th>使用デッキ</th></tr></thead>
           <tbody id="memo-list"></tbody>
         </table>
       </div>
@@ -705,7 +721,7 @@
         <p id="memo-archive-info" role="status"></p>
         <button id="memo-archive-reset" class="danger-button" disabled>この大会のメモをリセット</button>
         <div class="table-scroll"><table>
-          <thead><tr><th>DMP ID</th><th>保存時のハンドルネーム</th><th>使用デッキ</th></tr></thead>
+          <thead><tr id="memo-archive-head"><th>DMP ID</th><th>保存時のハンドルネーム</th><th>使用デッキ</th></tr></thead>
           <tbody id="memo-archive-players"></tbody>
         </table></div>
       </section>
@@ -716,6 +732,7 @@
 
   <script src="prediction-summary.js"></script>
   <script src="deck-select.js"></script>
+  <script src="event-reset-ui.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>

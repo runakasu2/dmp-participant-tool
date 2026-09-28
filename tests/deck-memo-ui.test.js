@@ -81,3 +81,26 @@ test('reset sends deletion only after both confirmations',async()=>{
     assert.equal(deletions,answers.every(Boolean)?1:0);
   }
 });
+
+test('TCG memo UI has only table/name/deck, saves by provider key and preserves selection on refresh',async()=>{
+  const elements=new Map(),calls=[];let deckId=null;
+  const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
+    const body=options?.body?JSON.parse(options.body):null;calls.push({url,body});
+    if(url==='/api/decks?sort=usage')return {ok:true,json:async()=>({success:true,decks:[{id:1,name:'正式デッキ'}]})};
+    if(url==='/api/deck-memo') {deckId=body.deckId;return {ok:true,json:async()=>({success:true,deckId,deckName:'正式デッキ'})};}
+    return {ok:true,json:async()=>({success:true,provider:'tcg_meister',sourceUrl:'https://tcg.sfc-jpn.jp/loginnum.asp?tid=5482242',adminKey:'5482242',memoEventId:5,event:{eventName:'大会',eventDate:'2026-09-29'},latestRound:5,
+      participants:[{participantKey:'id:42',internalParticipantId:'42',name:'旧HN',table:null,bye:true,deckId,deckName:deckId?'正式デッキ':null}]})};
+  }});
+  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
+  await elements.get('memo-refresh').handlers.click();
+  let row=elements.get('memo-list').children[0];assert.equal(row.children.length,3);
+  assert.deepEqual(elements.get('memo-table-head').children.map(c=>c.textContent),['卓','ハンドルネーム','使用デッキ']);
+  assert.equal(row.children[0].textContent,'不戦勝');assert.equal(row.children[1].textContent,'旧HN');
+  const deck=row.children[2].children[0];deck.value='1';await deck.handlers.change();
+  assert.equal(calls.at(-1).body.participantKey,'id:42');assert.equal('dmpId' in calls.at(-1).body,false);
+  await elements.get('memo-refresh').handlers.click();row=elements.get('memo-list').children[0];
+  assert.equal(row.children[2].children[0].value,'1');
+  assert.ok(calls.every(c=>!c.url.includes('mapping')));
+  assert.match(elements.get('memo-summary').textContent,/デッキ登録：1 \/ 1/);
+});

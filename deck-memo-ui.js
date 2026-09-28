@@ -28,7 +28,7 @@
     summary.textContent = (current.latestRound === null ? '未公開' : '現在：Round ' + current.latestRound) +
       ' ／ 参加者：' + current.participants.length + '人 ／ デッキ登録：' +
       current.participants.filter(player => player.deckId !== null).length + ' / ' + current.participants.length +
-      ' ／ admin：' + current.adminKey;
+      (current.provider === 'tcg_meister' ? ' ／ TCGマイスター tid：' : ' ／ admin：') + current.adminKey;
   };
   async function getJson(url, options) {
     const response = await fetch(url, options);
@@ -41,12 +41,18 @@
     selects = [];
     let previousTable = null, group = 0;
     const loaded = current;
+    const tcg = loaded.provider === 'tcg_meister';
+    document.getElementById('memo-table-head').replaceChildren();
+    for (const label of tcg ? ['卓','ハンドルネーム','使用デッキ'] : ['卓','DMP ID','ハンドルネーム','使用デッキ']) {
+      const th = document.createElement('th'); th.textContent = label; document.getElementById('memo-table-head').appendChild(th);
+    }
     for (const player of loaded.participants) {
       const row = document.createElement('tr');
       if (previousTable !== player.table) { row.classList.add('memo-table-start'); group++; }
       if (group % 2) row.classList.add('memo-table-shade');
       previousTable = player.table;
-      for (const value of [player.table, player.dmpId, player.name]) {
+      const values = tcg ? [player.bye ? '不戦勝' : player.table, player.name] : [player.table, player.dmpId, player.name];
+      for (const value of values) {
         const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
       }
       const cell = document.createElement('td');
@@ -59,7 +65,7 @@
         select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; saved.textContent = '保存中...';
         try {
           const data = await getJson('/api/deck-memo', {method: 'PUT', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({url: loaded.sourceUrl, memoEventId: loaded.memoEventId, dmpId: player.dmpId, deckId: select.value ? Number(select.value) : null})});
+            body: JSON.stringify({url: loaded.sourceUrl, memoEventId: loaded.memoEventId, ...(tcg ? {} : {dmpId: player.dmpId}), participantKey: player.participantKey, deckId: select.value ? Number(select.value) : null})});
           player.deckId = data.deckId; player.deckName = data.deckName;
           saved.textContent = data.deckId === null ? '解除しました' : '保存しました';
           if (loaded === current) updateSummary();
@@ -105,10 +111,16 @@
       title.textContent = data.event.eventName;
       info.textContent = data.event.eventDate + ' ／ 参加者：' + data.participantCount + '人 ／ デッキ登録：' + data.registeredCount +
         ' / ' + data.participantCount + ' ／ 未登録：' + (data.participantCount - data.registeredCount) +
-        '人 ／ admin：' + data.event.adminKey;
+        (data.event.provider === 'tcg_meister' ? '人 ／ TCGマイスター tid：' : '人 ／ admin：') + data.event.adminKey;
+      const tcg = data.event.provider === 'tcg_meister';
+      const head = document.getElementById('memo-archive-head'); head.replaceChildren();
+      for (const label of tcg ? ['保存時のハンドルネーム','使用デッキ'] : ['DMP ID','保存時のハンドルネーム','使用デッキ']) {
+        const th = document.createElement('th'); th.textContent = label; head.appendChild(th);
+      }
       for (const player of data.participants) {
         const row = document.createElement('tr');
-        for (const value of [player.dmpId, player.name, player.deckName || '未選択']) {
+        const values = tcg ? [player.name, player.deckName || '未選択'] : [player.dmpId, player.name, player.deckName || '未選択'];
+        for (const value of values) {
           const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
         }
         players.appendChild(row);

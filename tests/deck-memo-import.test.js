@@ -55,7 +55,7 @@ test('classifies by result membership, null deck and canonical current deck; rej
 
 test('preview counts all categories and uses current player name without using name for identity',async()=>{
   const f=fixture();const p=(await f.preview()).body;
-  assert.deepEqual(p.counts,{new:1,same:1,conflict:2,unselected:1,absent:1});
+  assert.deepEqual(p.counts,{new:1,same:1,conflict:2,unselected:1,absent:1,unmatched:0});
   assert.equal(p.players[0].dmpId,'101');assert.equal(p.players[0].name,'現在の名前1');
   assert.equal(f.history.size,3);
 });

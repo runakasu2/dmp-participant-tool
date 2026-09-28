@@ -1223,7 +1223,12 @@ const reloadEventsButton =
   );
 
 
-async function loadEvents() {
+const eventResetControls = createEventResetControls(afterReset => loadEvents(afterReset));
+let eventsLoadVersion = 0;
+async function loadEvents(afterReset = false) {
+  if (eventResetControls.busy && !afterReset) return;
+  const version = ++eventsLoadVersion;
+  eventResetControls.beginLoad();
 
   const list =
     document.getElementById(
@@ -1239,7 +1244,7 @@ async function loadEvents() {
   list.innerHTML =
     `
       <tr>
-        <td colspan="6">
+        <td colspan="7">
           読み込み中...
         </td>
       </tr>
@@ -1258,6 +1263,7 @@ async function loadEvents() {
       await response.json();
 
 
+    if (version !== eventsLoadVersion) return;
     if (!response.ok) {
 
       throw new Error(
@@ -1286,7 +1292,7 @@ async function loadEvents() {
       list.innerHTML =
         `
           <tr>
-            <td colspan="6">
+            <td colspan="7">
               保存されている大会はありません。
             </td>
           </tr>
@@ -1320,12 +1326,15 @@ async function loadEvents() {
           "click",
           () => {
 
+            if (eventResetControls.rowClick(event.id)) return;
             openEventDetail(
               event
             );
           }
         );
 
+
+        row.appendChild(eventResetControls.cell(event, row));
 
         // 開催日
         const dateCell =
@@ -1449,6 +1458,7 @@ async function loadEvents() {
 
 
   } catch (error) {
+    if (version !== eventsLoadVersion) return;
 
     console.error(
       error
@@ -1462,7 +1472,7 @@ async function loadEvents() {
     list.innerHTML =
       `
         <tr>
-          <td colspan="6">
+          <td colspan="7">
             大会一覧を取得できませんでした。
           </td>
         </tr>
@@ -1473,6 +1483,8 @@ async function loadEvents() {
       "大会一覧を取得できませんでした。\n" +
       error.message
     );
+  } finally {
+    if (version === eventsLoadVersion) eventResetControls.endLoad();
   }
 }
 

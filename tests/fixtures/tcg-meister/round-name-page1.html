@@ -1,0 +1,11 @@
+<!-- Simplified DOM from the public 5482242 round 5 page. Nested layout table and repeated headers. -->
+<table><tr><td><table>
+<tr><td>卓番</td><td>No.</td><td>あなたのお名前</td><td>累計<br>得点</td><td>対戦相手のお名前</td><td>累計得点</td></tr>
+<tr><td>1</td><td>ガブロジー</td><td onclick="VisitorLock('42','ガブロジー');"> ガブロジー </td><td>12</td><td>あーる@</td><td>12</td></tr>
+<tr><td>1</td><td>あーる@</td><td onclick="VisitorLock('17','あーる@');">あーる@</td><td>12</td><td>ガブロジー</td><td>12</td></tr>
+</table></td></tr></table>
+<script>
+var PageStr = "";
+PageStr = PageStr + "<a href=\"/tourround.asp?tid=5482242&kno=5&Page=2&Sort=Table&Order=\">2</a>";
+document.getElementById('PageLayer').innerHTML = PageStr;
+</script>

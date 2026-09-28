@@ -26,7 +26,7 @@ function fixture() {
       if(fail)throw Error('write failure');
       for(const p of JSON.parse(args[1]))members.set(args[0]+':'+p.dmp_id,{...p,archive_id:args[0]});
     }
-    if(sql.includes('COUNT(p.dmp_id)'))return{rows:Array.from(archives.values()).sort((a,b)=>b.event_date.localeCompare(a.event_date)).map(a=>{
+    if(sql.includes('COUNT(p.participant_key)'))return{rows:Array.from(archives.values()).sort((a,b)=>b.event_date.localeCompare(a.event_date)).map(a=>{
       const p=Array.from(members.values()).filter(p=>p.archive_id===a.id);return{...a,participant_count:p.length,registered_count:p.filter(p=>p.deck_id!==null).length};})};
     if(sql.includes('SELECT a.*, a.event_date')){
       const a=archives.get(args[0]);return{rows:a?Array.from(members.values()).filter(p=>p.archive_id===a.id).map(p=>({...a,...p,saved_date:a.event_date,shop_id:'3616',event_id:String(a.event_record_id),seq:'2',deck_name:p.deck_id===null?null:deckName})):[]};
