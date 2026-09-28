@@ -689,6 +689,14 @@ await pool.query(`
         require("node:path").join(__dirname, "migrations/002_event_deck_predictions.sql"), "utf8"
       ));
 
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/003_deck_memos.sql"), "utf8"
+      ));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/004_deck_memo_archives.sql"), "utf8"
+      ));
+
       res.json({
         success: true,
 
@@ -2971,6 +2979,14 @@ app.post("/api/decks/:id/merge", async (req, res) => {
       "UPDATE event_deck_predictions SET manual_deck_id = $1, updated_at = CURRENT_TIMESTAMP WHERE manual_deck_id = $2",
       [targetId, sourceId]
     );
+    await client.query(
+      "UPDATE deck_memos SET deck_id = $1, updated_at = CURRENT_TIMESTAMP WHERE deck_id = $2",
+      [targetId, sourceId]
+    );
+    await client.query(
+      "UPDATE deck_memo_archive_players SET deck_id = $1, updated_at = CURRENT_TIMESTAMP WHERE deck_id = $2",
+      [targetId, sourceId]
+    );
     await client.query("UPDATE decks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1", [targetId]);
     await client.query("DELETE FROM decks WHERE id = $1", [sourceId]);
     await client.query("COMMIT");
@@ -3001,6 +3017,9 @@ app.post("/api/decks/:id/merge", async (req, res) => {
 // ========================================
 // サーバー起動
 // ========================================
+
+require(require("node:path").join(__dirname, "deck-memo.js")).installMemoRoutes(app, pool, globalThis.fetch, fetchEventDetail);
+require(require("node:path").join(__dirname, "deck-memo-archives.js")).installArchiveRoutes(app, pool);
 
 app.listen(
   PORT,

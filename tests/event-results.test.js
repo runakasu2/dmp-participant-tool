@@ -103,3 +103,17 @@ test('malformed upstream page is rejected instead of returning partial results',
   f.context.fetch = async () => ({ok:true, json:async () => ({d: {unexpected:true}})});
   await assert.rejects(f.context.fetchResultParticipants({year:2026,shopId:'s',eventId:'e',held:'2'}));
 });
+
+
+test('existing DMP parser and Shift_JIS detail fetch provide identity, name and date', async () => {
+  const f = fixture();
+  const url = 'https://www.dmp-ranking.com/event.asp?ShopID=3616&EventID=336&Seq=2';
+  const ids = f.context.parseEventDetailUrl(url);
+  assert.equal(ids.shopId, '3616'); assert.equal(ids.eventId, '336'); assert.equal(ids.seq, '2');
+  assert.throws(() => f.context.parseEventDetailUrl('https://example.com/?ShopID=1&EventID=2&Seq=3'));
+  f.context.fetch = async () => ({ok:true, arrayBuffer:async () => Buffer.from('PGh0bWw+PGgxPoNlg1iDZ0NTPC9oMT48cD6KSo3Dk/qBRjIwMjYvMDkvMjg8L3A+PC9odG1sPg==', 'base64')});
+  const detail = await f.context.fetchEventDetail(url);
+  assert.equal(detail.eventName, 'テストCS');
+  assert.equal(detail.eventDate, '2026-09-28');
+  assert.equal(detail.held, '2');
+});

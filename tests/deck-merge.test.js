@@ -29,7 +29,7 @@ function fixture({ missing = false, failAt, connectFails = false, rollbackFails 
       if (name === 'pg') return { Pool: function () { return pool; } };
       return require(name);
     },
-    process: { env: {} }, __dirname, console: { log() {}, error() {} }, URL, TextDecoder
+    process: { env: {} }, __dirname: path.join(__dirname, ".."), console: { log() {}, error() {} }, URL, TextDecoder
   });
   return {
     calls,
@@ -51,12 +51,16 @@ test('success: history and aliases move before source deletion and commit', asyn
   assert.equal(res.body.updatedHistoryCount, 3);
   assert.equal(res.body.movedAliasCount, 2);
   assert.equal(res.body.deck.name, '正式名');
-  assert.deepEqual(f.calls.map(call => call.sql.split(' ')[0]), ['BEGIN', 'SELECT', 'UPDATE', 'UPDATE', 'UPDATE', 'UPDATE', 'DELETE', 'COMMIT']);
+  assert.deepEqual(f.calls.map(call => call.sql.split(' ')[0]), ['BEGIN', 'SELECT', 'UPDATE', 'UPDATE', 'UPDATE', 'UPDATE', 'UPDATE', 'UPDATE', 'DELETE', 'COMMIT']);
   assert.deepEqual(Array.from(f.calls[2].params), ['正式名', '旧名']);
   assert.deepEqual(Array.from(f.calls[3].params), [4, 1]);
   assert.deepEqual(Array.from(f.calls[4].params), [4, 1]);
   assert.match(f.calls[4].sql, /UPDATE event_deck_predictions/);
-  assert.deepEqual(Array.from(f.calls[6].params), [1]);
+  assert.match(f.calls[5].sql, /UPDATE deck_memos/);
+  assert.deepEqual(Array.from(f.calls[5].params), [4, 1]);
+  assert.match(f.calls[6].sql, /UPDATE deck_memo_archive_players/);
+  assert.deepEqual(Array.from(f.calls[6].params), [4, 1]);
+  assert.deepEqual(Array.from(f.calls[8].params), [1]);
   assert.equal(f.released, true);
 });
 
@@ -76,7 +80,7 @@ test('missing deck rolls back without mutations', async () => {
   assert.equal(f.released, true);
 });
 
-for (const failAt of [2, 3, 4, 5, 6, 7, 8]) {
+for (const failAt of [2, 3, 4, 5, 6, 7, 8, 9, 10]) {
   test('failure at transaction step ' + failAt + ' rolls back and releases client', async () => {
     const f = fixture({ failAt });
     assert.equal((await f.request()).statusCode, 500);

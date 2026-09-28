@@ -160,6 +160,7 @@ const pagePlayerDetail =
 // ========================================
 
 function hideAllPages() {
+  document.getElementById("page-deck-memo").style.display = "none";
 
   pageParticipants.style.display =
     "none";
@@ -189,6 +190,7 @@ function hideAllPages() {
 // ========================================
 
 function clearActiveMenus() {
+  document.getElementById("menu-deck-memo").classList.remove("active");
 
   menuParticipants.classList.remove(
     "active"

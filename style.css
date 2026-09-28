@@ -242,3 +242,20 @@ hr {
 #prediction-summary .table-scroll { overflow-x: auto; }
 #prediction-summary th { white-space: nowrap; }
 #prediction-summary td:first-child { overflow-wrap: anywhere; }
+
+.menu { overflow-x: auto; }
+.menu-button { flex-shrink: 0; }
+#page-deck-memo .table-scroll { overflow-x: auto; }
+#page-deck-memo table { min-width: 540px; }
+#page-deck-memo td { vertical-align: top; overflow-wrap: anywhere; }
+#page-deck-memo .memo-table-start td { border-top: 3px solid #aaa; }
+#page-deck-memo .memo-table-shade { background: #f3f6f9; }
+#page-deck-memo select { width: 100%; min-width: 160px; max-width: 300px; font-size: 16px; padding: 10px; }
+#page-deck-memo small { display: block; margin-top: 4px; }
+#page-deck-memo button:disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 600px) {
+  #page-deck-memo .input-area { flex-direction: column; }
+  #page-deck-memo input { min-width: 0; font-size: 16px; }
+}
+
+#page-deck-memo .danger-button { background: #a62323; margin-bottom: 12px; }
