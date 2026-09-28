@@ -1,3 +1,90 @@
+let predictionParticipants = [];
+let predictionDecks = [];
+
+function renderPredictionSummary() {
+  const summary = buildPredictionSummary(predictionParticipants, predictionDecks);
+  const status = document.getElementById("prediction-summary-status");
+  const list = document.getElementById("prediction-summary-list");
+  list.replaceChildren();
+  status.textContent = summary.participantCount
+    ? `参加表明者：${summary.participantCount}人 ／ 予想済み：${summary.predictedCount}人 ／ 不明：${summary.unknownCount}人 ／ 予想カバー率：${summary.coverage}%`
+    : "参加表明者：0人。予想母数を表示するには参加者を取得してください。";
+  for (const deck of summary.decks) {
+    const row = document.createElement("tr");
+    for (const value of [deck.deckName, deck.count + "人", deck.percentage + "%"]) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    }
+    list.appendChild(row);
+  }
+}
+
+function createPredictionCell(participant, decks, event, onPredictionChanged = () => {}) {
+  const cell = document.createElement("td");
+  cell.className = "prediction-cell";
+  cell.addEventListener("click", event => event.stopPropagation());
+  let prediction = participant.prediction;
+  const label = document.createElement("div");
+  const select = document.createElement("select");
+  select.setAttribute("aria-label", participant.name + "の手動予想デッキ");
+  const unknown = document.createElement("option");
+  unknown.value = "";
+  unknown.textContent = "不明";
+  select.appendChild(unknown);
+  for (const deck of decks) {
+    const option = document.createElement("option");
+    option.value = String(deck.id);
+    option.textContent = deck.name;
+    select.appendChild(option);
+  }
+  const save = document.createElement("button");
+  save.textContent = "手動で保存";
+  const reset = document.createElement("button");
+  reset.textContent = "自動予想に戻す";
+  const status = document.createElement("small");
+  status.setAttribute("role", "status");
+  const render = () => {
+    label.textContent = (prediction.finalDeckName || "不明") +
+      (prediction.source === "manual" ? "（手動）" : prediction.autoStatus === "unavailable" ? "（履歴取得失敗）" : "（自動）");
+    const current = prediction.hasManualPrediction ? prediction.manualDeckId : decks.find(d => d.name === prediction.autoDeckName)?.id;
+    select.value = current == null ? "" : String(current);
+    reset.disabled = !prediction.hasManualPrediction;
+  };
+  const update = async mode => {
+    select.disabled = save.disabled = reset.disabled = true;
+    status.textContent = "保存中...";
+    try {
+      const response = await fetch("/api/event-deck-prediction", {
+        method: "PUT", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({...event, dmpId: String(participant.id), mode,
+          deckId: select.value ? Number(select.value) : null})
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "保存できませんでした。");
+      prediction = {...prediction,
+        hasManualPrediction: data.hasManualPrediction,
+        manualDeckId: data.manualDeckId, manualDeckName: data.manualDeckName,
+        finalDeckName: data.hasManualPrediction ? data.manualDeckName : prediction.autoDeckName,
+        source: data.hasManualPrediction ? "manual" : prediction.autoDeckName ? "auto" : "unknown"};
+      participant.prediction = prediction;
+      onPredictionChanged();
+      render();
+      status.textContent = mode === "auto" ? "自動予想に戻しました。" : "保存しました。";
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      select.disabled = save.disabled = false;
+      reset.disabled = !prediction.hasManualPrediction;
+    }
+  };
+  save.addEventListener("click", () => update("manual"));
+  reset.addEventListener("click", () => update("auto"));
+  cell.append(label, select, save, reset, status);
+  render();
+  return cell;
+}
+
 console.log(
   "新しいscript.jsが読み込まれています"
 );
@@ -25,6 +112,11 @@ const menuEvents =
 const menuPlayers =
   document.getElementById(
     "menu-players"
+  );
+
+  const menuDecks =
+  document.getElementById(
+    "menu-decks"
   );
 
 
@@ -58,6 +150,10 @@ const pagePlayerDetail =
     "page-player-detail"
   );
 
+  const pageDecks =
+  document.getElementById(
+    "page-decks"
+  );
 
 // ========================================
 // 全ページを非表示
@@ -82,6 +178,9 @@ function hideAllPages() {
 
   pagePlayerDetail.style.display =
     "none";
+
+    pageDecks.style.display =
+  "none";
 }
 
 
@@ -106,6 +205,9 @@ function clearActiveMenus() {
   menuPlayers.classList.remove(
     "active"
   );
+  menuDecks.classList.remove(
+  "active"
+);
 }
 
 
@@ -191,6 +293,28 @@ menuPlayers.addEventListener(
     menuPlayers.classList.add(
       "active"
     );
+  }
+);
+
+// ========================================
+// デッキ管理ページ
+// ========================================
+
+menuDecks.addEventListener(
+  "click",
+  () => {
+
+    hideAllPages();
+    clearActiveMenus();
+
+    pageDecks.style.display =
+      "block";
+
+    menuDecks.classList.add(
+      "active"
+    );
+
+    loadDecks();
   }
 );
 
@@ -350,73 +474,6 @@ button.addEventListener(
 
 
       // --------------------------
-      // 保存済みデッキ取得
-      // --------------------------
-
-      const deckResponse =
-        await fetch(
-          "/api/deck-history" +
-          "?shopId=" +
-          encodeURIComponent(
-            shopId
-          ) +
-          "&eventId=" +
-          encodeURIComponent(
-            eventId
-          ) +
-          "&seq=" +
-          encodeURIComponent(
-            seq
-          )
-        );
-
-
-      const deckData =
-        await deckResponse.json();
-
-
-      if (!deckResponse.ok) {
-
-        throw new Error(
-          deckData.detail ||
-          deckData.error ||
-          "保存済みデッキを取得できませんでした。"
-        );
-      }
-
-
-      // --------------------------
-      // DMP IDごとに履歴整理
-      // --------------------------
-
-      const savedDecks = {};
-
-
-      deckData.decks.forEach(
-        (deck) => {
-
-          const dmpId =
-            String(
-              deck.dmp_id
-            );
-
-
-          if (
-            !savedDecks[
-              dmpId
-            ]
-          ) {
-
-            savedDecks[
-              dmpId
-            ] =
-              deck.deck_name;
-          }
-        }
-      );
-
-
-      // --------------------------
       // 参加者一覧表示
       // --------------------------
 
@@ -429,6 +486,11 @@ button.addEventListener(
       list.innerHTML =
         "";
 
+
+      predictionParticipants = data.participants;
+      predictionDecks = data.decks;
+      renderPredictionSummary();
+      const displayedParticipants = data.participants;
 
       data.participants.forEach(
         (participant) => {
@@ -463,18 +525,34 @@ button.addEventListener(
             );
 
 
-          const savedDeck =
-            savedDecks[
-              String(
-                participant.id
-              )
-            ];
-
-
-          deckCell.textContent =
-            savedDeck ||
-            "履歴なし";
-
+          if (data.recentDecksStatus === "unavailable") {
+            deckCell.textContent = "履歴取得失敗";
+          } else if (!participant.recentDecks?.length) {
+            deckCell.textContent = "履歴なし";
+          } else {
+            const histories = document.createElement("ul");
+            histories.className = "recent-decks";
+            for (const history of participant.recentDecks) {
+              const item = document.createElement("li");
+              const date = document.createElement("small");
+              date.textContent = history.eventDate;
+              item.appendChild(document.createTextNode(history.deckName));
+              item.appendChild(date);
+              item.title = history.eventName || "大会名未登録";
+              histories.appendChild(item);
+            }
+            deckCell.appendChild(histories);
+          }
+          const playerButton = document.createElement("button");
+          playerButton.className = "player-detail-link";
+          playerButton.textContent = participant.name;
+          playerButton.addEventListener("click", event => {
+            event.stopPropagation();
+            openPlayerDetail(participant.id);
+          });
+          nameCell.replaceChildren(playerButton);
+          row.className = "event-result-player";
+          row.addEventListener("click", () => openPlayerDetail(participant.id));
 
           row.appendChild(
             idCell
@@ -489,6 +567,10 @@ button.addEventListener(
           );
 
 
+          row.appendChild(createPredictionCell(participant, data.decks, {shopId, eventId, seq}, () => {
+            if (predictionParticipants === displayedParticipants) renderPredictionSummary();
+          }));
+
           list.appendChild(
             row
           );
@@ -501,7 +583,7 @@ button.addEventListener(
       ).textContent =
         "取得件数：" +
         data.count +
-        "人";
+        "人" + (data.recentDecksMessage ? "（" + data.recentDecksMessage + "）" : "");
 
 
     } catch (error) {
@@ -533,6 +615,10 @@ const resetButton =
 resetButton.addEventListener(
   "click",
   () => {
+    predictionParticipants = [];
+    predictionDecks = [];
+    renderPredictionSummary();
+
 
     document.getElementById(
       "event-url"
@@ -1415,9 +1501,54 @@ const backEventsButton =
   );
 
 
+let eventResultsRequest = 0;
+
+async function loadEventResults(event) {
+  const request = ++eventResultsRequest;
+  const resultStatus = document.getElementById("event-results-status");
+  const resultList = document.getElementById("event-results-list");
+  resultList.replaceChildren();
+  resultStatus.textContent = "読み込み中...";
+  const addRow = (list, values) => {
+    const row = document.createElement("tr");
+    for (const value of values) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    }
+    list.appendChild(row);
+    return row;
+  };
+  try {
+    const query = new URLSearchParams({shopId: event.shop_id, eventId: event.event_id, seq: event.seq});
+    const response = await fetch("/api/event-results?" + query);
+    const data = await response.json();
+    if (request !== eventResultsRequest) return;
+    if (!response.ok) throw new Error(data.error || "取得に失敗しました。");
+    resultStatus.textContent = data.count ? "保存済み：" + data.count + "人。プレイヤーをクリックすると個人ページを表示します。" : "保存済み大会結果がありません。";
+    for (const player of data.participants) {
+      const row = addRow(resultList, [player.rank == null ? "順位不明" : player.rank + "位", player.id, player.name, player.deckName?.trim() ? player.deckName : "未登録"]);
+      row.className = "event-result-player";
+      row.addEventListener("click", () => openPlayerDetail(player.id));
+      const button = document.createElement("button");
+      button.className = "player-detail-link";
+      button.textContent = player.name;
+      button.addEventListener("click", event => {
+        event.stopPropagation();
+        openPlayerDetail(player.id);
+      });
+      row.children[2].replaceChildren(button);
+    }
+  } catch (error) {
+    if (request !== eventResultsRequest) return;
+    resultStatus.textContent = "大会結果を取得できませんでした。" + error.message;
+  }
+}
+
 async function openEventDetail(
   event
 ) {
+  void loadEventResults(event);
 
   pageParticipants.style.display =
     "none";
@@ -2575,5 +2706,564 @@ backPlayersButton.addEventListener(
     menuPlayers.classList.add(
       "active"
     );
+  }
+);
+
+// ========================================
+// デッキ一覧を読み込む
+// ========================================
+
+async function loadDecks() {
+  try {
+    const response =
+      await fetch(
+        "/api/decks"
+      );
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+        data.error ||
+        "デッキ一覧を取得できませんでした。"
+      );
+    }
+
+
+    const deckCount =
+      document.getElementById(
+        "deck-count"
+      );
+
+    const deckList =
+      document.getElementById(
+        "deck-management-list"
+      );
+
+
+    deckCount.textContent =
+      "登録数：" +
+      data.decks.length;
+
+
+    deckList.innerHTML = "";
+
+
+    // デッキがまだない場合
+    if (
+      !data.decks ||
+      data.decks.length === 0
+    ) {
+      deckList.innerHTML =
+        `
+          <p>
+            登録されているデッキはありません。
+          </p>
+        `;
+
+      return;
+    }
+
+
+    // ====================================
+    // デッキごとに表示
+    // ====================================
+
+    data.decks.forEach(
+      (deck) => {
+
+        const deckBox =
+          document.createElement(
+            "div"
+          );
+
+
+        deckBox.style.padding =
+          "15px";
+
+        deckBox.style.marginBottom =
+          "15px";
+
+        deckBox.style.border =
+          "1px solid #ddd";
+
+        deckBox.style.borderRadius =
+          "8px";
+
+
+        // --------------------------
+        // 正式名称
+        // --------------------------
+
+        const name =
+          document.createElement(
+            "h3"
+          );
+
+        name.textContent =
+          deck.name;
+
+        name.style.marginTop =
+          "0";
+
+          // --------------------------
+// 正式名称編集
+// --------------------------
+
+const editArea =
+  document.createElement(
+    "div"
+  );
+
+editArea.className =
+  "input-area";
+
+editArea.style.marginBottom =
+  "10px";
+
+
+const editInput =
+  document.createElement(
+    "input"
+  );
+
+editInput.type =
+  "text";
+
+editInput.value =
+  deck.name;
+
+editInput.placeholder =
+  "正式デッキ名";
+
+
+const editButton =
+  document.createElement(
+    "button"
+  );
+
+editButton.textContent =
+  "名前を編集";
+
+
+editButton.addEventListener(
+  "click",
+  async () => {
+
+    const newName =
+      editInput.value.trim();
+
+
+    if (!newName) {
+      alert(
+        "デッキ名を入力してください。"
+      );
+
+      return;
+    }
+
+
+    if (newName === deck.name) {
+      alert(
+        "デッキ名が変更されていません。"
+      );
+
+      return;
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/decks/" +
+          deck.id,
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+                name: newName
+              })
+          }
+        );
+
+
+      const result =
+        await response.json();
+
+
+      if (!response.ok) {
+        throw new Error(
+          result.detail ||
+          result.error ||
+          "デッキ名を編集できませんでした。"
+        );
+      }
+
+
+      await loadDecks();
+
+
+    } catch (error) {
+
+      console.error(
+        error
+      );
+
+      alert(
+        "デッキ名を編集できませんでした。\n" +
+        error.message
+      );
+    }
+  }
+);
+
+
+editArea.appendChild(
+  editInput
+);
+
+editArea.appendChild(
+  editButton
+);
+
+        // --------------------------
+        // 別名表示
+        // --------------------------
+
+        const aliasText =
+          document.createElement(
+            "p"
+          );
+
+
+        if (
+          deck.aliases &&
+          deck.aliases.length > 0
+        ) {
+          aliasText.textContent =
+            "別名：" +
+            deck.aliases.join(
+              " / "
+            );
+        } else {
+          aliasText.textContent =
+            "別名：なし";
+        }
+
+
+        // --------------------------
+        // 別名入力欄
+        // --------------------------
+
+        const aliasArea =
+          document.createElement(
+            "div"
+          );
+
+        aliasArea.className =
+          "input-area";
+
+
+        const aliasInput =
+          document.createElement(
+            "input"
+          );
+
+        aliasInput.type =
+          "text";
+
+        aliasInput.placeholder =
+          "別名を入力";
+
+
+        const aliasButton =
+          document.createElement(
+            "button"
+          );
+
+        aliasButton.textContent =
+          "別名を追加";
+
+
+        // --------------------------
+        // 別名追加
+        // --------------------------
+
+        aliasButton.addEventListener(
+          "click",
+          async () => {
+
+            const alias =
+              aliasInput.value.trim();
+
+
+            if (!alias) {
+              alert(
+                "別名を入力してください。"
+              );
+
+              return;
+            }
+
+
+            try {
+              const response =
+                await fetch(
+                  "/api/deck-aliases",
+                  {
+                    method: "POST",
+
+                    headers: {
+                      "Content-Type":
+                        "application/json"
+                    },
+
+                    body:
+                      JSON.stringify({
+                        deckId:
+                          deck.id,
+
+                        alias:
+                          alias
+                      })
+                  }
+                );
+
+
+              const result =
+                await response.json();
+
+
+              if (!response.ok) {
+                throw new Error(
+                  result.detail ||
+                  result.error ||
+                  "別名を追加できませんでした。"
+                );
+              }
+
+
+              aliasInput.value =
+                "";
+
+
+              await loadDecks();
+
+
+            } catch (error) {
+              console.error(
+                error
+              );
+
+              alert(
+                "別名を追加できませんでした。\n" +
+                error.message
+              );
+            }
+          }
+        );
+
+
+        aliasArea.appendChild(
+          aliasInput
+        );
+
+        aliasArea.appendChild(
+          aliasButton
+        );
+
+
+        deckBox.appendChild(name);
+        deckBox.appendChild(editArea);
+        deckBox.appendChild(aliasText);
+        deckBox.appendChild(aliasArea);
+
+        const mergeArea = document.createElement("div");
+        mergeArea.className = "deck-merge-area";
+        const mergeLabel = document.createElement("label");
+        mergeLabel.textContent = "「" + deck.name + "」の統合先";
+        const mergeSelect = document.createElement("select");
+        mergeSelect.id = "merge-target-" + deck.id;
+        mergeLabel.htmlFor = mergeSelect.id;
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "統合先を選択してください";
+        mergeSelect.appendChild(placeholder);
+        data.decks.filter(candidate => candidate.id !== deck.id).forEach(candidate => {
+          const option = document.createElement("option");
+          option.value = String(candidate.id);
+          option.textContent = candidate.name;
+          mergeSelect.appendChild(option);
+        });
+        const mergeButton = document.createElement("button");
+        mergeButton.textContent = "このデッキを統合";
+        mergeButton.disabled = true;
+        mergeSelect.addEventListener("change", () => {
+          mergeButton.disabled = !mergeSelect.value;
+        });
+        mergeButton.addEventListener("click", async () => {
+          const target = data.decks.find(candidate => String(candidate.id) === mergeSelect.value);
+          if (!target || mergeButton.disabled) return;
+          if (!confirm(
+            "統合元：「" + deck.name + "」\n統合先：「" + target.name + "」\n\n" +
+            "使用履歴と別名を統合先へ移し、統合元のデッキを削除します。\n" +
+            "この操作は元に戻せません。統合しますか？"
+          )) return;
+          mergeButton.disabled = true;
+          mergeSelect.disabled = true;
+          mergeButton.textContent = "統合中...";
+          try {
+            const response = await fetch("/api/decks/" + deck.id + "/merge", {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({targetDeckId: target.id})
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "デッキを統合できませんでした。");
+            alert("統合しました。\n履歴更新：" + result.updatedHistoryCount +
+              "件\n別名移動：" + result.movedAliasCount + "件");
+            await loadDecks();
+          } catch (error) {
+            alert("デッキ統合に失敗しました。\n" + error.message);
+          } finally {
+            mergeButton.disabled = !mergeSelect.value;
+            mergeSelect.disabled = false;
+            mergeButton.textContent = "このデッキを統合";
+          }
+        });
+        mergeArea.appendChild(mergeLabel);
+        mergeArea.appendChild(mergeSelect);
+        mergeArea.appendChild(mergeButton);
+        deckBox.appendChild(mergeArea);
+
+
+        deckList.appendChild(
+          deckBox
+        );
+      }
+    );
+
+
+  } catch (error) {
+    console.error(
+      error
+    );
+
+    alert(
+      "デッキ一覧を取得できませんでした。\n" +
+      error.message
+    );
+  }
+}
+
+// ========================================
+// 正式デッキ名を追加
+// ========================================
+
+const deckNameInput =
+  document.getElementById(
+    "deck-name-input"
+  );
+
+const deckAddButton =
+  document.getElementById(
+    "deck-add-button"
+  );
+
+
+async function addDeck() {
+  const name =
+    deckNameInput.value.trim();
+
+
+  if (!name) {
+    alert(
+      "デッキ名を入力してください。"
+    );
+
+    return;
+  }
+
+
+  try {
+    const response =
+      await fetch(
+        "/api/decks",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              name: name
+            })
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+        data.error ||
+        "デッキを追加できませんでした。"
+      );
+    }
+
+
+    // 入力欄を空にする
+    deckNameInput.value =
+      "";
+
+
+    // 一覧を更新
+    await loadDecks();
+
+
+  } catch (error) {
+    console.error(
+      error
+    );
+
+    alert(
+      "デッキを追加できませんでした。\n" +
+      error.message
+    );
+  }
+}
+
+
+// 追加ボタン
+deckAddButton.addEventListener(
+  "click",
+  addDeck
+);
+
+
+// Enterキーでも追加
+deckNameInput.addEventListener(
+  "keydown",
+  (event) => {
+
+    if (event.key === "Enter") {
+      addDeck();
+    }
   }
 );

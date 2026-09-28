@@ -43,6 +43,13 @@
         大会一覧
       </button>
 
+<button
+  id="menu-decks"
+  class="menu-button"
+>
+  デッキ管理
+</button>
+
       <button
   id="menu-players"
   class="menu-button"
@@ -129,6 +136,17 @@
       </section>
 
 
+      <section id="prediction-summary">
+        <h2>予想デッキ母数</h2>
+        <p id="prediction-summary-status" role="status">予想母数を表示するには参加者を取得してください。</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>デッキ名</th><th>予想人数</th><th>全参加者に対する割合</th></tr></thead>
+            <tbody id="prediction-summary-list"><tr><td>不明</td><td>0人</td><td>0.0%</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
       <section id="participants">
 
         <h2>
@@ -139,6 +157,8 @@
           取得件数：0人
         </p>
 
+        <p>対象大会より前の開催日が分かる履歴を表示します（日付不明・同日分は除外）。</p>
+        <div class="table-scroll">
         <table>
 
           <thead>
@@ -146,7 +166,8 @@
             <tr>
               <th>ID</th>
               <th>ハンドルネーム</th>
-              <th>過去の使用デッキ</th>
+              <th>直近3回の使用デッキ</th>
+              <th>予想使用デッキ</th>
             </tr>
 
           </thead>
@@ -155,6 +176,7 @@
           </tbody>
 
         </table>
+        </div>
 
       </section>
 
@@ -391,6 +413,17 @@
 
       </section>
 
+      <section>
+        <h2>大会結果</h2>
+        <p id="event-results-status" role="status"></p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>順位</th><th>DMP ID</th><th>ハンドルネーム</th><th>使用デッキ</th></tr></thead>
+            <tbody id="event-results-list"></tbody>
+          </table>
+        </div>
+      </section>
+
     </div>
 
 <!-- ============================== -->
@@ -555,10 +588,71 @@
   </section>
 
 </div>
+<!-- ============================== -->
+<!-- デッキ管理ページ -->
+<!-- ============================== -->
+
+<div
+  id="page-decks"
+  class="page"
+  style="display: none;"
+>
+  <div class="page-title-row">
+    <div>
+      <h2>
+        デッキ管理
+      </h2>
+
+      <p class="page-description">
+        正式デッキ名と別名を管理します。
+      </p>
+    </div>
+  </div>
+
+
+  <!-- 正式デッキ名追加 -->
+
+  <section>
+    <h2>
+      デッキを追加
+    </h2>
+
+    <div class="input-area">
+      <input
+        type="text"
+        id="deck-name-input"
+        placeholder="正式デッキ名"
+      >
+
+      <button id="deck-add-button">
+        追加
+      </button>
+    </div>
+  </section>
+
+
+  <!-- 登録済みデッキ -->
+
+  <section>
+    <h2>
+      登録済みデッキ
+    </h2>
+
+    <p id="deck-count">
+      登録数：0
+    </p>
+
+    <div
+      id="deck-management-list"
+    >
+    </div>
+  </section>
+</div>
 
   </main>
 
 
+  <script src="prediction-summary.js"></script>
   <script src="script.js"></script>
 
 </body>
