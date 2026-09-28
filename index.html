@@ -251,6 +251,22 @@
       </section>
 
 
+      <section id="memo-import" hidden>
+        <h2>デッキメモ反映</h2>
+        <p id="memo-import-status" role="status"></p>
+        <button id="memo-import-open">デッキメモを大会結果に反映</button>
+        <div id="memo-import-details" hidden>
+          <p id="memo-import-counts"></p>
+          <p>競合は「既存を維持」が初期設定です。画面内で未保存の入力は比較対象になりません。</p>
+          <div class="table-scroll"><table>
+            <thead><tr><th>分類</th><th>DMP ID</th><th>ハンドルネーム</th><th>現在</th><th>デッキメモ</th><th>処理</th></tr></thead>
+            <tbody id="memo-import-rows"></tbody>
+          </table></div>
+          <button id="memo-import-cancel">キャンセル</button>
+          <button id="memo-import-apply">反映する</button>
+        </div>
+      </section>
+
       <section id="results">
 
         <h2>
@@ -701,6 +717,7 @@
   <script src="prediction-summary.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
+  <script src="deck-memo-import-ui.js"></script>
 
 </body>
 </html>

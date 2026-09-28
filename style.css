@@ -259,3 +259,9 @@ hr {
 }
 
 #page-deck-memo .danger-button { background: #a62323; margin-bottom: 12px; }
+
+#memo-import .table-scroll { overflow-x: auto; }
+#memo-import th { white-space: nowrap; }
+#memo-import select { min-width: 140px; padding: 10px; font-size: 16px; }
+#memo-import button { margin: 8px 4px 0 0; }
+#memo-import button:disabled { opacity: 0.5; cursor: not-allowed; }

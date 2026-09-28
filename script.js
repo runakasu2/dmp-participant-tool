@@ -703,6 +703,8 @@ resultButton.addEventListener(
     }
 
 
+    void setMemoImportTarget(null);
+
     try {
 
       resultButton.disabled =
@@ -872,6 +874,8 @@ resultButton.addEventListener(
         "";
 
 
+      const resultDeckInputs = new Map();
+
       data.participants.forEach(
         (participant) => {
 
@@ -926,6 +930,8 @@ resultButton.addEventListener(
               "input"
             );
 
+
+          resultDeckInputs.set(String(participant.id), deckInput);
 
           deckInput.type =
             "text";
@@ -1120,6 +1126,8 @@ resultButton.addEventListener(
       );
 
 
+      void setMemoImportTarget({shopId:String(data.shopId),eventId:String(data.eventId),seq:String(data.held)},resultDeckInputs);
+
       document.getElementById(
         "result-count"
       ).textContent =
@@ -1175,6 +1183,8 @@ const resultResetButton =
 resultResetButton.addEventListener(
   "click",
   () => {
+    void setMemoImportTarget(null);
+
 
     document.getElementById(
       "result-url"

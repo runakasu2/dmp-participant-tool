@@ -1648,261 +1648,32 @@ app.get(
 // player + ShopID + EventID + Seq で識別
 // ========================================
 
-app.post(
-  "/api/deck-history",
-  async (req, res) => {
-    try {
-
-      const {
-        dmpId,
-        shopId,
-        eventId,
-        seq,
-        eventDate,
-        deckName
-      } = req.body;
-
-
-      if (
-        !dmpId ||
-        !shopId ||
-        !eventId ||
-        !seq ||
-        !deckName
-      ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-
-            error:
-              "DMP ID、ShopID、EventID、Seq、またはデッキ名がありません。"
-          });
-      }
-
-
-      // ========================================
-      // 入力されたデッキ名を正式名称に変換
-      // ========================================
-
-      const inputDeckName =
-        String(deckName).trim();
-
-
-      const deckMasterResult =
-        await pool.query(
-          `
-            SELECT
-              d.id,
-              d.name
-
-            FROM decks d
-
-            LEFT JOIN deck_aliases da
-              ON d.id = da.deck_id
-
-            WHERE
-              LOWER(d.name) =
-                LOWER($1)
-
-              OR LOWER(da.alias) =
-                LOWER($1)
-
-            LIMIT 1;
-          `,
-          [
-            inputDeckName
-          ]
-        );
-
-
-      let normalizedDeckName =
-        inputDeckName;
-
-
-      // デッキマスターに存在する場合は
-      // 正式名称へ変換
-      if (
-        deckMasterResult.rows.length > 0
-      ) {
-        normalizedDeckName =
-          deckMasterResult.rows[0].name;
-      }
-
-
-      // --------------------------
-      // プレイヤー検索
-      // --------------------------
-
-      const playerResult =
-        await pool.query(
-          `
-            SELECT id
-            FROM players
-            WHERE dmp_id = $1;
-          `,
-          [
-            String(dmpId)
-          ]
-        );
-
-
-      if (
-        playerResult.rows.length === 0
-      ) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-
-            error:
-              "参加者がDBに登録されていません。"
-          });
-      }
-
-
-      const playerId =
-        playerResult.rows[0].id;
-
-
-      // --------------------------
-      // 同じ選手・同じ大会の
-      // 既存履歴を確認
-      // --------------------------
-
-      const existingResult =
-        await pool.query(
-          `
-            SELECT id
-
-            FROM deck_history
-
-            WHERE
-              player_id = $1
-              AND shop_id = $2
-              AND event_id = $3
-              AND seq = $4
-
-            ORDER BY
-              created_at DESC
-
-            LIMIT 1;
-          `,
-          [
-            playerId,
-            String(shopId),
-            String(eventId),
-            String(seq)
-          ]
-        );
-
-
-      let result;
-
-
-      // --------------------------
-      // 既存なら更新
-      // --------------------------
-
-      if (
-        existingResult.rows.length > 0
-      ) {
-
-        result =
-          await pool.query(
-            `
-              UPDATE deck_history
-
-              SET
-                event_date = $1,
-                deck_name = $2,
-                created_at =
-                  CURRENT_TIMESTAMP
-
-              WHERE id = $3
-
-              RETURNING *;
-            `,
-            [
-              eventDate || null,
-              normalizedDeckName,
-              existingResult.rows[0].id
-            ]
-          );
-
-      } else {
-
-        // --------------------------
-        // 新規なら追加
-        // --------------------------
-
-        result =
-          await pool.query(
-            `
-              INSERT INTO deck_history
-              (
-                player_id,
-                shop_id,
-                event_id,
-                seq,
-                event_date,
-                deck_name
-              )
-
-              VALUES
-              (
-                $1,
-                $2,
-                $3,
-                $4,
-                $5,
-                $6
-              )
-
-              RETURNING *;
-            `,
-            [
-              playerId,
-              String(shopId),
-              String(eventId),
-              String(seq),
-              eventDate || null,
-              normalizedDeckName
-            ]
-          );
-      }
-
-
-      res.json({
-        success: true,
-
-        // 実際に保存された正式名称も返す
-        normalizedDeckName:
-          normalizedDeckName,
-
-        deckHistory:
-          result.rows[0]
-      });
-
-    } catch (error) {
-
-      console.error(
-        "デッキ履歴保存エラー:",
-        error
-      );
-
-      res.status(500).json({
-        success: false,
-
-        error:
-          "デッキ履歴を保存できませんでした。",
-
-        detail:
-          error.message
-      });
-    }
+const historyStore = require(require("node:path").join(__dirname, "deck-history-store.js"));
+app.post("/api/deck-history", async (req, res) => {
+  const {dmpId, shopId, eventId, seq, eventDate, deckName} = req.body || {};
+  if (!dmpId || !shopId || !eventId || !seq || typeof deckName !== "string" || !deckName.trim()) {
+    return res.status(400).json({success:false,error:"DMP ID、ShopID、EventID、Seq、デッキ名を指定してください。"});
   }
-);
+  let client, releaseError;
+  try {
+    client = await pool.connect();
+    await historyStore.beginHistoryTransaction(client);
+    const normalizedDeckName = await historyStore.normalizeDeckName(client, deckName);
+    const player = await client.query("SELECT id FROM players WHERE dmp_id = $1", [String(dmpId)]);
+    if (!player.rows.length) {
+      const error = new Error("参加者がDBに登録されていません。"); error.status = 404; throw error;
+    }
+    const deckHistory = await historyStore.saveDeckHistory(client, {
+      playerId:player.rows[0].id, shopId, eventId, seq, eventDate, deckName:normalizedDeckName
+    });
+    await client.query("COMMIT");
+    res.json({success:true,normalizedDeckName,deckHistory});
+  } catch (error) {
+    if (client) { try { await client.query("ROLLBACK"); } catch (rollbackError) {releaseError = rollbackError;} }
+    console.error("デッキ履歴保存エラー:",error);
+    res.status(error.status || 500).json({success:false,error:error.status ? error.message : "デッキ履歴を保存できませんでした。再試行してください。"});
+  } finally { if(client) client.release(releaseError); }
+});
 
 // ========================================
 // 保存済み大会一覧を取得
@@ -3020,6 +2791,8 @@ app.post("/api/decks/:id/merge", async (req, res) => {
 
 require(require("node:path").join(__dirname, "deck-memo.js")).installMemoRoutes(app, pool, globalThis.fetch, fetchEventDetail);
 require(require("node:path").join(__dirname, "deck-memo-archives.js")).installArchiveRoutes(app, pool);
+
+require(require("node:path").join(__dirname, "deck-memo-import.js")).installImportRoutes(app, pool);
 
 app.listen(
   PORT,
