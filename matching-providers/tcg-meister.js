@@ -11,8 +11,14 @@ function parseTcgUrl(value) {
     throw failure('https://tcg.sfc-jpn.jp/loginnum.asp のURLを指定してください。', 400);
   }
   const tids = url.searchParams.getAll('tid'), mmps = url.searchParams.getAll('MMP');
-  if (tids.length !== 1 || !/^[1-9]\d{0,19}$/.test(tids[0]) || mmps.length > 1 || (mmps[0] || '').length > 200) {
-    throw failure('tidまたはMMPが不正です。', 400);
+  if (!tids.length || (tids.length === 1 && !tids[0])) {
+    throw failure('TCGマイスターのURLからtidを取得できませんでした。', 400);
+  }
+  if (tids.length !== 1 || !/^[1-9]\d{0,19}$/.test(tids[0])) {
+    throw failure('TCGマイスターのtidは数字の大会IDを指定してください。', 400);
+  }
+  if (mmps.length > 1 || (mmps[0] || '').length > 200) {
+    throw failure('TCGマイスターのMMPの形式が不正です。', 400);
   }
   const tid = tids[0], mmp = mmps[0] || '';
   return {provider:'tcg_meister', tid, adminKey:tid, mmp,

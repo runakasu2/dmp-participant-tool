@@ -12,8 +12,11 @@ function parseMemoUrl(value) {
     throw fail('https://nojigikucs.com/ のURLを指定してください。');
   }
   const values = url.searchParams.getAll('admin');
+  if (!values.length || (values.length === 1 && !values[0])) {
+    throw fail('nojigikuのURLからadminを取得できませんでした。');
+  }
   if (values.length !== 1 || !/^[A-Za-z0-9_-]{1,100}$/.test(values[0])) {
-    throw fail('adminが未指定、または形式が不正です。');
+    throw fail('nojigikuのadminの形式が不正です。英数字・ハイフン・アンダースコアで指定してください。');
   }
   return {adminKey: values[0], sourceUrl: 'https://nojigikucs.com/?' + new URLSearchParams({admin: values[0]})};
 }
@@ -59,7 +62,10 @@ function latestMatching(matches, users = []) {
       const id = String(match['user' + side + 'id'] ?? '');
       // A bye/empty seat may not carry a DMP ID. It is not a player.
       if (!id || id === '0') continue;
-      if (!/^\d{1,50}$/.test(id)) throw fail('対戦サイトのDMP IDが不正です。', 502);
+      // Nojigiku represents the absent opponent of a bye with -1 (not a player ID).
+      if (id === '-1' && String(match['user' + side + 'no']) === '-1' &&
+          /^Bye\s*[（(]不戦勝[）)]$/i.test(String(match['user' + side] || '').trim())) continue;
+      if (!/^\d{1,50}$/.test(id)) throw fail('nojigikuの対戦表に不正な参加者DMP IDが含まれています。URLのadminではなく、取得データを確認してください。', 502);
       if (seen.has(id)) throw fail('最新ラウンドに同じDMP IDが重複しています。', 502);
       seen.add(id);
       const fallback = String(match['user' + side] || '').replace(/\s*[（(]\s*\d+\s*点\s*[）)]\s*$/, '').trim();

@@ -130,3 +130,17 @@ test('missing deck and write failure roll back and release',async()=>{
   h.setWriteFail();assert.equal((await h.save('other',1)).code,500);
   assert.equal(h.calls.at(-1),'ROLLBACK');assert.equal(h.released,true);
 });
+
+test('nojigiku Bye (-1 ID and entry number) is excluded while the real player is retained',()=>{
+  for(const sentinel of [-1,'-1']) for(const side of [1,2]) {
+    const row=match(3,29,'056075','090001');
+    row['user'+side+'id']=sentinel;row['user'+side+'no']=sentinel;row['user'+side]='Bye (不戦勝)';
+    const result=latestMatching([row]);
+    assert.equal(result.latestRound,3);assert.equal(result.participants.length,1);
+    assert.equal(result.participants[0].dmpId,side===1?'090001':'056075');
+    assert.equal(result.participants[0].table,29);
+  }
+});
+test('other invalid player IDs are still rejected instead of silently dropping participants',()=>{
+  for(const id of [-2,'bad-id',-1])assert.throws(()=>latestMatching([match(3,1,id,102)]),/参加者DMP ID/);
+});
