@@ -281,3 +281,48 @@ hr {
 .event-reset-area .danger-button { color: #805454; }
 .event-reset-area button:hover:not(:disabled) { background: #f2f2f2; }
 .event-reset-area button:disabled { opacity: 0.45; cursor: not-allowed; background: transparent; }
+
+/* Tournament catalogue: image URLs are optional; the gradient always remains. */
+.event-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.event-card { position:relative; min-width:0; overflow:hidden; border:1px solid #ddd; border-radius:12px; background:#fff; cursor:pointer; }
+.event-card:hover { border-color:#999; box-shadow:0 4px 14px #00000012; }
+.event-card:focus-visible { outline:3px solid #555; outline-offset:3px; }
+.event-card.is-selected { border-color:#995555; box-shadow:0 0 0 2px #995555; }
+.event-card-hero { position:relative; aspect-ratio:16/9; background:linear-gradient(135deg,#252a32,#56616c); display:grid; place-items:center; overflow:hidden; }
+.event-card-placeholder { font-size:48px; font-weight:700; color:#ffffff38; }
+.event-card-image { position:absolute; width:100%; height:100%; object-fit:cover; }
+.event-card-body { padding:16px; }
+.event-card-date,.event-card-count { margin:0 0 8px; color:#666; font-size:13px; }
+.event-card-name { margin:0 0 12px; font-size:18px; line-height:1.5; overflow-wrap:anywhere; }
+.event-card-best { border-top:1px solid #eee; margin-top:14px; padding-top:14px; }
+.event-card-best h4 { margin:0 0 12px; font-size:12px; letter-spacing:.15em; color:#666; }
+.event-card-result { display:flex; gap:10px; margin-bottom:12px; font-size:14px; overflow-wrap:anywhere; }
+.event-card-result>div { min-width:0; }
+.event-card-rank { flex-shrink:0; color:#666; font-size:12px; padding-top:2px; }
+.event-card-deck,.event-card-empty { color:#666; font-size:12px; line-height:1.6; }
+.event-card .event-selection-cell { position:absolute; top:10px; right:10px; background:white; border-radius:6px; padding:5px; min-width:0; }
+.event-card-image-editor { margin-top:16px; color:#666; font-size:12px; cursor:default; }
+.event-card-image-editor summary { cursor:pointer; padding:8px 0; }
+.event-card-image-editor input { width:100%; box-sizing:border-box; min-height:44px; margin:8px 0; }
+.event-card-image-editor button { min-height:44px; padding:8px 12px; }
+.event-card [hidden] { display:none!important; }
+@media(max-width:950px) { .event-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .event-grid { grid-template-columns:minmax(0,1fr); } }
+.event-card-hero { min-height:200px; }
+.event-card-hero::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#141c2bea,#141c2b55); pointer-events:none; }
+.event-card-info { position:relative; z-index:1; padding:22px; width:100%; box-sizing:border-box; }
+.event-card-info .event-card-date,.event-card-info .event-card-count { color:#e2e6ec; }
+.event-card-info .event-card-name { color:#fff; }
+.event-card-info .event-card-count { margin-top:18px; padding-top:14px; border-top:1px solid #ffffff55; }
+.event-card .event-selection-cell { z-index:2; }
+.event-card-placeholder { position:absolute; inset:0; display:grid; place-items:center; }
+.deck-image-editor { margin:16px 0; padding:12px; border:1px solid #ddd; border-radius:8px; }
+.deck-image-editor img { display:block; width:110px; height:150px; object-fit:contain; margin-bottom:12px; }
+.deck-image-editor img[hidden] { display:none; }
+.deck-image-editor label { display:block; }
+.deck-image-editor input { display:block; width:100%; box-sizing:border-box; min-height:44px; margin:8px 0; }
+.event-card-hero { height:230px; aspect-ratio:auto; }
+.deck-art-preview { position:relative; height:230px; max-width:420px; overflow:hidden; background:linear-gradient(135deg,#252a32,#56616c); }
+.deck-image-editor .deck-art-preview img { position:absolute; max-width:none; object-fit:fill; margin:0; }
+.deck-art-preview::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#141c2bea,#141c2b55); pointer-events:none; }
+.event-card-image { max-width:none; object-fit:fill; }

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-function fixture({ missing = false, failAt, connectFails = false, rollbackFails = false } = {}) {
+function fixture({ missing = false, failAt, connectFails = false, rollbackFails = false, sourceImage=null, targetImage=null } = {}) {
   const calls = [];
   let released = false;
   let releaseError;
@@ -13,7 +13,7 @@ function fixture({ missing = false, failAt, connectFails = false, rollbackFails 
     async query(sql, params) {
       calls.push({ sql, params });
       if (calls.length === failAt || (rollbackFails && sql === 'ROLLBACK')) throw new Error('simulated failure');
-      if (sql.startsWith('SELECT')) return { rows: missing ? [{ id: 1, name: '旧名' }] : [{ id: 1, name: '旧名' }, { id: 4, name: '正式名' }] };
+      if (sql.startsWith('SELECT')) return { rows: missing ? [{ id: 1, name: '旧名' }] : [{ id: 1, name: '旧名',image_url:sourceImage }, { id: 4, name: '正式名',image_url:targetImage }] };
       return { rowCount: sql.startsWith('UPDATE deck_history') ? 3 : 2 };
     },
     release(error) { released = true; releaseError = error; }
@@ -101,4 +101,12 @@ test('failed rollback discards connection', async () => {
   assert.equal((await f.request()).statusCode, 500);
   assert.equal(f.released, true);
   assert.ok(f.releaseError);
+});
+
+test('different images prevent merge without deletion; source image is passed to target fallback',async()=>{
+ const conflict=fixture({sourceImage:'https://a.example/x',targetImage:'https://b.example/x'});
+ assert.equal((await conflict.request()).statusCode,409);assert.equal(conflict.calls.at(-1).sql,'ROLLBACK');assert.equal(conflict.calls.length,3);
+ const transfer=fixture({sourceImage:'https://a.example/x'});assert.equal((await transfer.request()).statusCode,200);
+ const update=transfer.calls.find(c=>c.sql.includes('image_url=COALESCE'));
+ assert.equal(update.params[1],'https://a.example/x');
 });

@@ -706,6 +706,14 @@ await pool.query(`
         require("node:path").join(__dirname, "migrations/005_tcg_meister_memos.sql"), "utf8"
       ));
 
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/006_event_images.sql"), "utf8"
+      ));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/007_deck_images.sql"), "utf8"
+      ));
+
       res.json({
         success: true,
 
@@ -1613,28 +1621,7 @@ app.get(
   async (req, res) => {
     try {
 
-      const result =
-        await pool.query(
-          `
-            SELECT
-              id,
-              shop_id,
-              event_id,
-              seq,
-              event_date,
-              event_name,
-              participant_count,
-              created_at,
-              updated_at
-
-            FROM events
-
-            ORDER BY
-              event_date DESC,
-              id DESC;
-          `
-        );
-
+      const result = await pool.query(require(require("node:path").join(__dirname, "event-catalog.js")).EVENT_CATALOG_SQL);
 
       res.json({
         success: true,
@@ -2629,7 +2616,7 @@ app.post("/api/decks/:id/merge", async (req, res) => {
     inTransaction = true;
     // 逆方向の同時統合でも同じ順番でロックする。
     const result = await client.query(
-      "SELECT id, name FROM decks WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE",
+      "SELECT id, name, image_url FROM decks WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE",
       [[sourceId, targetId]]
     );
     const source = result.rows.find(deck => deck.id === sourceId);
@@ -2641,6 +2628,11 @@ app.post("/api/decks/:id/merge", async (req, res) => {
         success: false,
         error: "統合元または統合先が見つかりません。一覧を更新してください。"
       });
+    }
+
+    if (source.image_url && target.image_url && source.image_url !== target.image_url) {
+      await client.query("ROLLBACK"); inTransaction = false;
+      return res.status(409).json({success:false,error:"両方のデッキに異なる代表画像があります。デッキ管理で残す画像を設定し、もう一方を解除してから統合してください。"});
     }
 
     const history = await client.query(
@@ -2669,7 +2661,7 @@ app.post("/api/decks/:id/merge", async (req, res) => {
       [targetId, sourceId]
     );
 
-    await client.query("UPDATE decks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1", [targetId]);
+    await client.query("UPDATE decks SET image_url=COALESCE(image_url,$2), updated_at = CURRENT_TIMESTAMP WHERE id = $1", [targetId,source.image_url || null]);
     await client.query("DELETE FROM decks WHERE id = $1", [sourceId]);
     await client.query("COMMIT");
     inTransaction = false;
@@ -2706,6 +2698,10 @@ require(require("node:path").join(__dirname, "deck-memo-archives.js")).installAr
 require(require("node:path").join(__dirname, "deck-memo-import.js")).installImportRoutes(app, pool);
 
 require(require('node:path').join(__dirname, 'event-reset.js')).installEventResetRoutes(app, pool);
+
+require(require("node:path").join(__dirname, "event-catalog.js")).installDeckImageRoute(app, pool);
+
+require(require("node:path").join(__dirname, "deck-image-upload.js")).installUploadRoute(app,pool,express);
 
 app.listen(
   PORT,

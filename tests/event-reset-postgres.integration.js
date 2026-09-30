@@ -21,7 +21,7 @@ test('PostgreSQL reset isolates full event keys/providers, keeps masters, and ro
   try {
     assert.equal((await call('get','/api/setup-db')).code,200);
     await db.exec(`INSERT INTO players(dmp_id,handle_name) VALUES ('056075','共通プレイヤー');
-      INSERT INTO decks(name) VALUES ('共通デッキ'); INSERT INTO deck_aliases(deck_id,alias) VALUES (1,'別名');
+      INSERT INTO decks(name,image_url) VALUES ('共通デッキ','https://example.com/global.png'); INSERT INTO deck_aliases(deck_id,alias) VALUES (1,'別名');
       INSERT INTO events(shop_id,event_id,seq,event_name,event_date) VALUES ('s1','same','1','A','2026-09-29'),('s2','same','1','B','2026-09-29'),('s1','same','2','C','2026-09-29'),('s3','other','1','D','2026-09-29');
       INSERT INTO event_results(event_record_id,player_id,rank) SELECT id,1,8 FROM events;
       INSERT INTO event_deck_predictions(event_record_id,player_id,manual_deck_id) SELECT id,1,1 FROM events;

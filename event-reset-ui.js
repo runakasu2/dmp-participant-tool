@@ -17,6 +17,7 @@ function createEventResetControls(reload) {
     selection.hidden=!deleting;heading.hidden=!deleting;cancel.disabled=busy||loading;
     for(const {checkbox,cell,row} of rows.values()) {
       checkbox.disabled=busy||loading||!deleting;cell.hidden=!deleting;
+      if(row){row.classList?.toggle('is-selected',deleting&&checkbox.checked);if(row.imageControl)row.imageControl.hidden=deleting;row.setAttribute('aria-pressed',String(deleting&&checkbox.checked));}
       if(row)row.title=deleting?'クリックして削除対象を選択・解除':'クリックしてデッキ母数を表示';
     }
     document.getElementById('event-selection-count').textContent='選択中：'+selected+'件';
@@ -60,7 +61,7 @@ function createEventResetControls(reload) {
       return true;
     },
     cell(event,row) {
-      const cell=document.createElement('td');cell.className='event-selection-cell';
+      const cell=document.createElement('div');cell.className='event-selection-cell';
       cell.addEventListener('click',e=>e.stopPropagation());
       const checkbox=document.createElement('input');checkbox.type='checkbox';
       checkbox.setAttribute('aria-label',(event.event_name||'大会')+'を選択');

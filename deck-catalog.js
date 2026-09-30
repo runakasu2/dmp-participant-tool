@@ -15,7 +15,7 @@ const catalogSql = `
     FROM history_counts h JOIN ranked_names n ON n.key = h.key AND n.position = 1
     GROUP BY n.deck_id
   )
-  SELECT d.id, d.name, COALESCE(u.usage_count, 0) AS usage_count,
+  SELECT d.id, d.name, d.image_url, COALESCE(u.usage_count, 0) AS usage_count,
     COALESCE((SELECT json_agg(a.alias ORDER BY a.alias) FROM deck_aliases a WHERE a.deck_id = d.id), '[]') AS aliases
   FROM decks d LEFT JOIN usage u ON u.deck_id = d.id
 `;

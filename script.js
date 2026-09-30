@@ -1241,15 +1241,7 @@ async function loadEvents(afterReset = false) {
     );
 
 
-  list.innerHTML =
-    `
-      <tr>
-        <td colspan="7">
-          読み込み中...
-        </td>
-      </tr>
-    `;
-
+  list.textContent = '読み込み中...';
 
   try {
 
@@ -1289,172 +1281,13 @@ async function loadEvents(afterReset = false) {
       data.events.length === 0
     ) {
 
-      list.innerHTML =
-        `
-          <tr>
-            <td colspan="7">
-              保存されている大会はありません。
-            </td>
-          </tr>
-        `;
+      list.textContent = '保存されている大会はありません。';
 
       return;
     }
 
 
-    data.events.forEach(
-      (event) => {
-
-        const row =
-          document.createElement(
-            "tr"
-          );
-
-
-        // --------------------------
-        // 行をクリック可能にする
-        // --------------------------
-
-        row.style.cursor =
-          "pointer";
-
-        row.title =
-          "クリックしてデッキ母数を表示";
-
-
-        row.addEventListener(
-          "click",
-          () => {
-
-            if (eventResetControls.rowClick(event.id)) return;
-            openEventDetail(
-              event
-            );
-          }
-        );
-
-
-        row.appendChild(eventResetControls.cell(event, row));
-
-        // 開催日
-        const dateCell =
-          document.createElement(
-            "td"
-          );
-
-
-        if (event.event_date) {
-
-          const date =
-            new Date(
-              event.event_date
-            );
-
-
-          dateCell.textContent =
-            date.toLocaleDateString(
-              "ja-JP",
-              {
-                timeZone:
-                  "Asia/Tokyo"
-              }
-            );
-
-
-        } else {
-
-          dateCell.textContent =
-            "-";
-        }
-
-
-        // 大会名
-        const nameCell =
-          document.createElement(
-            "td"
-          );
-
-
-        nameCell.textContent =
-          event.event_name ||
-          "大会名未取得";
-
-
-        // 参加人数
-        const participantCell =
-          document.createElement(
-            "td"
-          );
-
-
-        participantCell.textContent =
-          event.participant_count +
-          "人";
-
-
-        // ShopID
-        const shopCell =
-          document.createElement(
-            "td"
-          );
-
-
-        shopCell.textContent =
-          event.shop_id;
-
-
-        // EventID
-        const eventCell =
-          document.createElement(
-            "td"
-          );
-
-
-        eventCell.textContent =
-          event.event_id;
-
-
-        // Seq
-        const seqCell =
-          document.createElement(
-            "td"
-          );
-
-
-        seqCell.textContent =
-          event.seq;
-
-
-        row.appendChild(
-          dateCell
-        );
-
-        row.appendChild(
-          nameCell
-        );
-
-        row.appendChild(
-          participantCell
-        );
-
-        row.appendChild(
-          shopCell
-        );
-
-        row.appendChild(
-          eventCell
-        );
-
-        row.appendChild(
-          seqCell
-        );
-
-
-        list.appendChild(
-          row
-        );
-      }
-    );
+    data.events.forEach(event => list.appendChild(createEventCard(event, eventResetControls, openEventDetail)));
 
 
   } catch (error) {
@@ -1469,15 +1302,7 @@ async function loadEvents(afterReset = false) {
       "保存大会数：-";
 
 
-    list.innerHTML =
-      `
-        <tr>
-          <td colspan="7">
-            大会一覧を取得できませんでした。
-          </td>
-        </tr>
-      `;
-
+    list.textContent = '大会一覧を取得できませんでした。';
 
     alert(
       "大会一覧を取得できませんでした。\n" +
@@ -3152,6 +2977,7 @@ editArea.appendChild(
         mergeArea.appendChild(mergeLabel);
         mergeArea.appendChild(mergeSelect);
         mergeArea.appendChild(mergeButton);
+        deckBox.appendChild(createDeckImageEditor(deck));
         deckBox.appendChild(mergeArea);
 
 

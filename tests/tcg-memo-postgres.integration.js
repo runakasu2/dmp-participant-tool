@@ -27,6 +27,7 @@ test('PostgreSQL: migrate legacy data twice, memo first, match/import after resu
       INSERT INTO deck_memo_archives(event_record_id,event_name,event_date,admin_key,source_url) VALUES (1,'保存済み','2026-09-01','legacy','https://nojigikucs.com/?admin=legacy');
       INSERT INTO deck_memo_archive_players(archive_id,dmp_id,handle_name,deck_id) VALUES (1,'000123','当時の名前',1);`);
     await db.exec(migration('005_tcg_meister_memos.sql'));
+    await db.exec(migration('007_deck_images.sql'));
     for(const file of ['003_deck_memos.sql','004_deck_memo_archives.sql','005_tcg_meister_memos.sql']) await db.exec(migration(file));
     const old=(await db.query('SELECT * FROM deck_memo_archive_players WHERE archive_id=1')).rows[0];
     assert.equal(old.dmp_id,'000123');assert.equal(old.participant_key,'dmp:000123');assert.equal(old.handle_name,'当時の名前');

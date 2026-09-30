@@ -16,10 +16,10 @@ import sqlite3,json,sys
 sql=json.load(sys.stdin)
 c=sqlite3.connect(':memory:');c.row_factory=sqlite3.Row
 c.executescript("""
-CREATE TABLE decks(id INTEGER PRIMARY KEY,name TEXT);
+CREATE TABLE decks(id INTEGER PRIMARY KEY,name TEXT,image_url TEXT);
 CREATE TABLE deck_aliases(deck_id INTEGER,alias TEXT UNIQUE);
 CREATE TABLE deck_history(deck_name TEXT);
-INSERT INTO decks VALUES(1,'A'),(2,'B'),(3,'C'),(4,'D');
+INSERT INTO decks(id,name) VALUES(1,'A'),(2,'B'),(3,'C'),(4,'D');
 INSERT INTO deck_aliases VALUES(1,'alias1'),(1,'alias2'),(3,'B');
 INSERT INTO deck_history VALUES('A'),('A'),('alias1'),('alias2'),('B'),('B'),('unmapped');
 """)
@@ -32,7 +32,7 @@ c.execute("UPDATE deck_history SET deck_name='B' WHERE deck_name='Z'")
 c.execute("UPDATE deck_aliases SET deck_id=2 WHERE deck_id=1")
 c.execute("DELETE FROM decks WHERE id=1")
 phases.append(read())
-c.execute("INSERT INTO decks VALUES(5,'E')")
+c.execute("INSERT INTO decks(id,name) VALUES(5,'E')")
 phases.append(read())
 print(json.dumps(phases))
 `],{input:JSON.stringify(sql),encoding:'utf8'});
