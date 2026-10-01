@@ -101,17 +101,17 @@ function parseRound(html, tid, round) {
       const cells=$(tr).children('td,th');
       const texts=cells.map((_,c)=>$(c).text().trim()).get();
       const name=texts.indexOf('あなたのお名前');
-      if(name>=0 && texts.includes('No.')) {
+      if(name>=0 && texts.includes('卓番') && texts.includes('対戦相手のお名前')) {
         columns={name,raw:texts.indexOf('No.'),table:texts.indexOf('卓番'),opponent:texts.indexOf('対戦相手のお名前')};
         recognized=true;return;
       }
       if(!columns || texts.length<5) return;
       const handleName=texts[columns.name];
-      if(!handleName || handleName==='不戦勝') return;
+      if(!handleName || /^(?:bye(?:\s*[（(]不戦勝[）)])?|不戦勝)$/i.test(handleName)) return;
       const nameCell=cells.eq(columns.name);
       const handler=nameCell.attr('onclick') || nameCell.find('[onclick]').first().attr('onclick') || '';
       const internalParticipantId=/VisitorLock\(\s*['"](\d+)['"]\s*,/i.exec(handler)?.[1] || null;
-      const rawNo=texts[columns.raw] || '';
+      const rawNo=columns.raw>=0 ? texts[columns.raw] || '' : '';
       const tableText=texts[columns.table] || '';
       const tableNumber=/^[1-9]\d*$/.test(tableText) ? Number(tableText) : null;
       const bye=tableText.includes('不戦勝') || (texts[columns.opponent] || '').includes('不戦勝');

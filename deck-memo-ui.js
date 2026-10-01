@@ -1,3 +1,19 @@
+// Use one normalized roster for both visible matching rows and the summary.
+function normalizeMemoMatching(matching) {
+  const tcg=matching.provider==='tcg_meister';
+  const seen=new Set();
+  const participants=(matching.participants||[]).filter(player=>{
+    if(!tcg)return true;
+    const name=String(player.name??player.handleName??'').trim();
+    if(!name||/^(?:bye(?:\s*[（(]不戦勝[）)])?|不戦勝)$/i.test(name))return false;
+    if(player.round!=null&&matching.latestRound!=null&&Number(player.round)!==Number(matching.latestRound))return false;
+    const key=player.internalParticipantId!=null?'id:'+player.internalParticipantId:player.participantKey;
+    if(key&&seen.has(key))return false;
+    if(key)seen.add(key);
+    return true; // bye=true denotes the real player, not the placeholder opponent.
+  });
+  return {...matching,participants,participantCount:participants.length};
+}
 (() => {
   const menu = document.getElementById('menu-deck-memo');
   const page = document.getElementById('page-deck-memo');
@@ -16,6 +32,20 @@
   const list = document.getElementById('memo-list');
   let current = null;
   let saving = 0;
+  let matchingDiagnostic=null;
+  // Read-only diagnostic snapshot: never includes URLs, names, DMP IDs or credentials.
+  if(typeof window!=='undefined')window.getDeckMemoDiagnostic=()=>({
+    build:'memo-count-diagnostic-20261001',
+    response:matchingDiagnostic,
+    state:current?{provider:current.provider,latestRound:current.latestRound,
+      participantCount:current.participantCount,arrayLength:current.participants.length}:null,
+    visibleRowCount:list.children.length,
+    summaryText:summary.textContent,
+    summaryElementCount:document.querySelectorAll('[id="memo-summary"]').length,
+    listElementCount:document.querySelectorAll('[id="memo-list"]').length,
+    archiveVisible:!document.getElementById('memo-archive-detail').hidden,
+    archiveSummaryText:document.getElementById('memo-archive-info').textContent
+  });
   menu.addEventListener('click', () => {
     hideAllPages(); clearActiveMenus();
     page.style.display = 'block'; menu.classList.add('active');
@@ -88,7 +118,14 @@
         getJson('/api/deck-memo/matching', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: input.value.trim(), detailUrl: dmpInput.value.trim()})}),
         getJson('/api/decks?sort=usage', {cache: 'no-store'})
       ]);
-      current = matching;
+      const rawPlayers=Array.isArray(matching.participants)?matching.participants:[];
+      matchingDiagnostic={receivedAt:new Date().toISOString(),provider:matching.provider,
+        latestRound:matching.latestRound,reportedCount:matching.participantCount,
+        rawCount:rawPlayers.length,server:matching.countDiagnostic||null,
+        roundCounts:rawPlayers.reduce((counts,p)=>{const key=String(p.round??'missing');counts[key]=(counts[key]||0)+1;return counts;},{}),
+        blankNames:rawPlayers.filter(p=>!String(p.name??p.handleName??'').trim()).length};
+      current = normalizeMemoMatching(matching);
+      matchingDiagnostic.normalizedCount=current.participants.length;
       render(decks.decks);
       status.textContent = matching.latestRound === null ? '現在、対戦表は公開されていません' : '最新の対戦表を取得しました。';
       if (matching.warning) status.textContent += ' ' + matching.warning;

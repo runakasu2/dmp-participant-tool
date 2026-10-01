@@ -116,3 +116,19 @@ test('shared DMP participant reader paginates by 32, preserves leading zeroes an
   assert.equal(result.length,33);assert.equal(result[32].id,'056075');assert.deepEqual(offsets,[0,32]);
   await assert.rejects(fetchEventParticipants({shopId:'s',eventId:'e',seq:'2'},async()=>new Response('{"d":{}}')),/データ形式/);
 });
+
+test('BYE placeholders are excluded while the real bye player is retained',()=>{
+ const html='<table><tr><td>卓番</td><td>No.</td><td>あなたのお名前</td><td>累計得点</td><td>対戦相手のお名前</td></tr>'+['BYE','不戦勝','Bye (不戦勝)','', '実在プレイヤー'].map((name,i)=>`<tr><td>不戦勝</td><td>${i}</td><td onclick="VisitorLock('${i}','x')">${name}</td><td>0</td><td>不戦勝</td></tr>`).join('')+'</table>';
+ const result=parseRound(html,'5482242',5);
+ assert.equal(result.participants.length,1);assert.equal(result.participants[0].name,'実在プレイヤー');assert.equal(result.participants[0].bye,true);assert.equal(result.participants[0].dmpId,null);
+});
+
+test('public table without optional No. column is recognized and uses internal IDs',()=>{
+ const html=`<table><tr><td>卓番</td><td>あなたのお名前</td><td>累計得点</td><td>対戦相手のお名前</td><td>累計得点</td></tr>
+ <tr><td>1</td><td onclick="VisitorLock('123','A')">A</td><td>9</td><td>B</td><td>9</td></tr>
+ <tr><td>1</td><td onclick="VisitorLock('456','B')">B</td><td>9</td><td>A</td><td>9</td></tr></table>`;
+ const result=parseRound(html,'7413902',4);
+ assert.equal(result.participants.length,2);
+ assert.deepEqual(result.participants.map(p=>p.participantKey),['id:123','id:456']);
+ assert.ok(result.participants.every(p=>p.rawNo===''&&p.dmpId===null&&p.table===1));
+});

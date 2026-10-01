@@ -38,6 +38,9 @@ async function loadTcgMemo({source,detail,pool,fetchImpl}) {
     const participants=matching.participants.map(p=>participant(byKey.get(p.participantKey),source));
     await client.query('COMMIT');active=false;
     return {success:true,...source,event:detail,memoEventId:memoId,latestRound:matching.latestRound,
+      countDiagnostic:{build:'memo-count-diagnostic-20261001',latestRound:matching.latestRound,
+        fetchedCount:matching.participants.length,uniqueKeyCount:new Set(matching.participants.map(p=>p.participantKey)).size,
+        savedMatchingCount:matching.participants.filter(p=>byKey.has(p.participantKey)).length,responseCount:participants.length},
       participants,participantCount:participants.length,registeredCount:participants.filter(p=>p.deckId!==null).length};
   } catch(err) {
     if(active) try {await client.query('ROLLBACK');} catch(e) {releaseError=e;}

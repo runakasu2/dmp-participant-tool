@@ -104,3 +104,17 @@ test('TCG memo UI has only table/name/deck, saves by provider key and preserves 
   assert.ok(calls.every(c=>!c.url.includes('mapping')));
   assert.match(elements.get('memo-summary').textContent,/デッキ登録：1 \/ 1/);
 });
+
+test('latest TCG matching rows and header share 32 unique real players even when response count is zero',async()=>{
+ const elements=new Map();
+ const people=Array.from({length:32},(_,i)=>({participantKey:'id:'+i,internalParticipantId:String(i),name:'player'+i,table:Math.floor(i/2)+1,round:5,deckId:null,bye:i===31}));
+ const matching={success:true,provider:'tcg_meister',latestRound:5,participantCount:0,adminKey:'5482242',participants:[...people,...people.slice(0,3),{name:'BYE',participantKey:'bye',round:5},{name:'不戦勝',participantKey:'bye2'},{name:'',participantKey:'empty'},{name:'old',participantKey:'old',round:4}]};
+ const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},fetch:async url=>({ok:true,json:async()=>url.startsWith('/api/decks?')?{success:true,decks:[]}:matching})});
+ vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+ vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
+ await elements.get('memo-refresh').handlers.click();
+ assert.equal(elements.get('memo-list').children.length,32);
+ assert.match(elements.get('memo-summary').textContent,/参加者：32人/);
+ assert.equal(elements.get('memo-list').children[31].children[0].textContent,'不戦勝');
+ assert.equal(matching.participants.length,39); // original response was not mutated
+});
