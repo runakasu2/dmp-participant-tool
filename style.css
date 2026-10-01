@@ -326,3 +326,21 @@ hr {
 .deck-image-editor .deck-art-preview img { position:absolute; max-width:none; object-fit:fill; margin:0; }
 .deck-art-preview::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#141c2bea,#141c2b55); pointer-events:none; }
 .event-card-image { max-width:none; object-fit:fill; }
+.deck-view-buttons { display:flex; gap:8px; margin:14px 0; }
+.deck-view-buttons button { min-height:44px; background:#eee; color:#333; }
+.deck-view-buttons button[aria-pressed="true"] { background:#333; color:white; }
+.deck-pie { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:24px; }
+.deck-pie[hidden],#prediction-summary-table[hidden],#deck-summary-table[hidden] { display:none; }
+.deck-pie svg { width:100%; max-width:420px; height:auto; }
+.deck-pie-legend { padding:0; margin:0; list-style:none; min-width:0; }
+.deck-pie-legend li { overflow-wrap:anywhere; margin-bottom:10px; line-height:1.6; }
+.deck-pie-swatch { display:inline-block; width:14px; height:14px; margin-right:8px; border-radius:3px; }
+@media(max-width:600px) { .deck-pie { grid-template-columns:minmax(0,1fr); gap:16px; } }
+.deck-pie-swatch { width:28px; height:34px; vertical-align:middle; overflow:hidden; }
+.deck-pie-swatch img { width:100%; height:100%; object-fit:cover; }
+.deck-pie svg { max-width:620px; }
+@media(max-width:600px) {
+ .deck-pie-outer-label { display:none; }
+ .deck-pie-labeled { width:216%!important; max-width:none!important; margin-left:-58%; }
+ .deck-pie { overflow:hidden; }
+}

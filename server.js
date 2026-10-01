@@ -1744,6 +1744,7 @@ app.get(
           `
             SELECT
               dh.deck_name,
+              master.id AS deck_id, master.image_url,
               p.dmp_id,
               p.handle_name
 
@@ -1752,6 +1753,12 @@ app.get(
             INNER JOIN players p
               ON dh.player_id = p.id
 
+            LEFT JOIN LATERAL (
+              SELECT d.id,d.image_url FROM decks d
+              WHERE LOWER(d.name)=LOWER(dh.deck_name) OR EXISTS (
+                SELECT 1 FROM deck_aliases a WHERE a.deck_id=d.id AND LOWER(a.alias)=LOWER(dh.deck_name))
+              ORDER BY CASE WHEN LOWER(d.name)=LOWER(dh.deck_name) THEN 0 ELSE 1 END,d.id LIMIT 1
+            ) master ON true
             WHERE
               dh.shop_id = $1
               AND dh.event_id = $2
@@ -1796,6 +1803,8 @@ app.get(
                 deckName:
                   deckName,
 
+                deckId: row.deck_id,
+                image_url: row.image_url,
                 count:
                   0,
 

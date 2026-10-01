@@ -140,7 +140,12 @@
       <section id="prediction-summary">
         <h2>予想デッキ母数</h2>
         <p id="prediction-summary-status" role="status">予想母数を表示するには参加者を取得してください。</p>
-        <div class="table-scroll">
+        <div class="deck-view-buttons" role="group" aria-label="予想母数の表示形式">
+          <button id="prediction-view-list" type="button" aria-pressed="true">リスト表示</button>
+          <button id="prediction-view-pie" type="button" aria-pressed="false">円グラフ表示</button>
+        </div>
+        <div id="prediction-summary-pie" class="deck-pie" hidden><p>表示できる母数データがありません</p></div>
+        <div id="prediction-summary-table" class="table-scroll">
           <table>
             <thead><tr><th>デッキ名</th><th>予想人数</th><th>全参加者に対する割合</th></tr></thead>
             <tbody id="prediction-summary-list"><tr><td>不明</td><td>0人</td><td>0.0%</td></tr></tbody>
@@ -403,7 +408,12 @@
           -
         </p>
 
-        <div class="table-scroll">
+        <div class="deck-view-buttons" role="group" aria-label="母数の表示形式">
+          <button id="deck-view-list" type="button" aria-pressed="true">リスト表示</button>
+          <button id="deck-view-pie" type="button" aria-pressed="false">円グラフ表示</button>
+        </div>
+        <div id="deck-summary-pie" class="deck-pie" hidden></div>
+        <div id="deck-summary-table" class="table-scroll">
 
           <table>
 
@@ -714,6 +724,7 @@
   <script src="card-art.js"></script>
   <script src="event-cards.js"></script>
   <script src="deck-image-ui.js"></script>
+  <script src="deck-pie.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>

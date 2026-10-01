@@ -3,6 +3,8 @@ let predictionDecks = [];
 
 function renderPredictionSummary() {
   const summary = buildPredictionSummary(predictionParticipants, predictionDecks);
+  renderDeckPieChart(document.getElementById('prediction-summary-pie'),
+    summary.decks.map(deck=>deck.unknown?{...deck,deckName:'予想不明'}:{...deck,image_url:predictionDecks.find(master=>master.name===deck.deckName)?.image_url}),{total:summary.participantCount});
   const status = document.getElementById("prediction-summary-status");
   const list = document.getElementById("prediction-summary-list");
   list.replaceChildren();
@@ -1377,9 +1379,17 @@ async function loadEventResults(event) {
   }
 }
 
+let eventSummaryVersion=0;
+document.getElementById('prediction-view-list').addEventListener('click',()=>setDeckSummaryView('list','prediction'));
+document.getElementById('prediction-view-pie').addEventListener('click',()=>setDeckSummaryView('pie','prediction'));
+document.getElementById('deck-view-list').addEventListener('click',()=>setDeckSummaryView('list'));
+document.getElementById('deck-view-pie').addEventListener('click',()=>setDeckSummaryView('pie'));
 async function openEventDetail(
   event
 ) {
+  const summaryVersion=++eventSummaryVersion;
+  setDeckSummaryView('list');
+  document.getElementById('deck-summary-pie').textContent='読み込み中...';
   void loadEventResults(event);
 
   pageParticipants.style.display =
@@ -1491,6 +1501,7 @@ async function openEventDetail(
       await response.json();
 
 
+    if(summaryVersion!==eventSummaryVersion)return;
     if (!response.ok) {
 
       throw new Error(
@@ -1510,6 +1521,9 @@ async function openEventDetail(
       data.unregisteredCount +
       "人";
 
+
+    const summaryItems=eventSummaryItems(data);
+    renderDeckPieChart(document.getElementById('deck-summary-pie'),summaryItems,{total:data.participantCount});
 
     // ====================================
     // 入力済みデッキ
@@ -1900,15 +1914,7 @@ async function openEventDetail(
         );
 
 
-      const percentage =
-        data.participantCount > 0
-          ? (
-              data.unregisteredCount /
-              data.participantCount *
-              100
-            ).toFixed(1)
-          : "0.0";
-
+      const percentage = summaryItems[summaryItems.length-1].percentage;
 
       percentageCell.textContent =
         percentage +
@@ -1975,6 +1981,9 @@ async function openEventDetail(
 
 
   } catch (error) {
+    if(summaryVersion!==eventSummaryVersion)return;
+    document.getElementById('deck-summary-pie').textContent='デッキ母数を取得できませんでした。';
+
 
     console.error(
       error
