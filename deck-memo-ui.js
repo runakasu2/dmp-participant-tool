@@ -58,7 +58,7 @@ function normalizeMemoMatching(matching) {
     summary.textContent = (current.latestRound === null ? '未公開' : '現在：Round ' + current.latestRound) +
       ' ／ 参加者：' + current.participants.length + '人 ／ デッキ登録：' +
       current.participants.filter(player => player.deckId !== null).length + ' / ' + current.participants.length +
-      (current.provider === 'tcg_meister' ? ' ／ TCGマイスター tid：' : ' ／ admin：') + current.adminKey;
+      (current.provider === 'tcg_meister' ? ' ／ TCGマイスター tid：' : current.provider === 'sugatool' ? ' ／ スガツール event：' : ' ／ admin：') + current.adminKey;
   };
   async function getJson(url, options) {
     const response = await fetch(url, options);
@@ -81,7 +81,7 @@ function normalizeMemoMatching(matching) {
       if (previousTable !== player.table) { row.classList.add('memo-table-start'); group++; }
       if (group % 2) row.classList.add('memo-table-shade');
       previousTable = player.table;
-      const values = tcg ? [player.bye ? '不戦勝' : player.table, player.name] : [player.table, player.dmpId, player.name];
+      const values = tcg ? [player.bye ? '不戦勝' : player.table, player.name] : [player.table??'卓なし', player.dmpId, player.name];
       for (const value of values) {
         const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
       }

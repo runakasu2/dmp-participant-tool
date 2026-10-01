@@ -1,3 +1,4 @@
+const {parseSugatoolUrl,fetchSugatool} = require('./matching-providers/sugatool');
 const {parseTcgUrl} = require('./matching-providers/tcg-meister');
 const {loadTcgMemo, updateTcgMemo} = require('./deck-memo-tcg');
 // Verified against the public nojigikucs.com application bundle (2026-09-28).
@@ -79,6 +80,7 @@ function latestMatching(matches, users = []) {
 function detectProvider(value) {
   let url;
   try {url = new URL(value);} catch {throw fail('マッチングサイトのURLを入力してください。');}
+  if (url.hostname === 'sugatool.nojigikucs.com') return parseSugatoolUrl(value);
   if (url.hostname === 'tcg.sfc-jpn.jp') return parseTcgUrl(value);
   return {provider:'nojigiku', ...parseMemoUrl(value)};
 }
@@ -104,11 +106,15 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         res.set?.('Cache-Control', 'no-store');
         return res.json(result);
       }
-      const [matches, users] = await Promise.all([
-        fetchSource('get-cs-info', adminKey, fetchImpl),
-        fetchSource('get-users', adminKey, fetchImpl).then(rows => ({rows}), () => ({rows: [], failed: true}))
-      ]);
-      const matching = latestMatching(matches, users.rows);
+      let matching,users={rows:[]};
+      if(source.provider==='sugatool')matching=await fetchSugatool(source,fetchImpl);
+      else {
+        const [matches, fetchedUsers] = await Promise.all([
+          fetchSource('get-cs-info', adminKey, fetchImpl),
+          fetchSource('get-users', adminKey, fetchImpl).then(rows => ({rows}), () => ({rows: [], failed: true}))
+        ]);
+        users=fetchedUsers;matching=latestMatching(matches,users.rows);
+      }
       let event;
       if (detail) {
         const linked = await pool.query(`
@@ -120,10 +126,10 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         `, [detail.shopId, detail.eventId, detail.held, detail.eventName, detail.eventDate]);
         event = await pool.query(`
           INSERT INTO deck_memo_events (source, admin_key, source_url, event_record_id)
-          VALUES ('nojigiku', $1, $2, $3)
+          VALUES ($4, $1, $2, $3)
           ON CONFLICT (source, admin_key, event_record_id) DO UPDATE SET
             source_url = EXCLUDED.source_url, updated_at = CURRENT_TIMESTAMP RETURNING id
-        `, [adminKey, sourceUrl, linked.rows[0].id]);
+        `, [adminKey, sourceUrl, linked.rows[0].id,source.provider]);
         if (matching.participants.length) {
           await pool.query(`
             INSERT INTO deck_memo_roster (memo_event_id, dmp_id, handle_name, entry_no, table_no, round)
@@ -137,10 +143,10 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         }
       } else {
         event = await pool.query(`
-          INSERT INTO deck_memo_events (source, admin_key, source_url) VALUES ('nojigiku', $1, $2)
+          INSERT INTO deck_memo_events (source, admin_key, source_url) VALUES ($3, $1, $2)
           ON CONFLICT (source, admin_key) WHERE event_record_id IS NULL DO UPDATE SET
             source_url = EXCLUDED.source_url, updated_at = CURRENT_TIMESTAMP RETURNING id
-        `, [adminKey, sourceUrl]);
+        `, [adminKey, sourceUrl,source.provider]);
       }
       const memos = await pool.query(`
         SELECT m.dmp_id, m.deck_id, d.name AS deck_name FROM deck_memos m
@@ -150,10 +156,10 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
       const participants = matching.participants.map(player => ({...player,
         deckId: byId.get(player.dmpId)?.deck_id ?? null, deckName: byId.get(player.dmpId)?.deck_name ?? null}));
       res.set?.('Cache-Control', 'no-store');
-      res.json({success: true, provider: 'nojigiku', event: detail, adminKey, sourceUrl, memoEventId: event.rows[0].id,
+      res.json({success: true, provider: source.provider, event: detail, adminKey, sourceUrl, memoEventId: event.rows[0].id,
         latestRound: matching.latestRound, participants, participantCount: participants.length,
         registeredCount: participants.filter(player => player.deckId !== null).length,
-        warning: users.failed ? '参加者名一覧を取得できなかったため、対戦表の名前を表示しています。' : null});
+        warning: matching.warning || (users.failed ? '参加者名一覧を取得できなかったため、対戦表の名前を表示しています。' : null)});
     } catch (error) {
       console.error('対戦表取得エラー:', error.message);
       res.status(error.status || 500).json({success: false, error: error.status ? error.message : 'デッキメモを読み込めませんでした。DB初期化と接続を確認してください。'});
@@ -182,8 +188,8 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         deck = selected.rows[0];
       }
       const event = memoEventId === undefined
-        ? await client.query("SELECT id FROM deck_memo_events WHERE source = 'nojigiku' AND admin_key = $1 AND event_record_id IS NULL", [adminKey])
-        : await client.query("SELECT id FROM deck_memo_events WHERE source = 'nojigiku' AND admin_key = $1 AND id = $2", [adminKey, memoEventId]);
+        ? await client.query("SELECT id FROM deck_memo_events WHERE source = $2 AND admin_key = $1 AND event_record_id IS NULL", [adminKey,source.provider])
+        : await client.query("SELECT id FROM deck_memo_events WHERE source = $3 AND admin_key = $1 AND id = $2", [adminKey, memoEventId,source.provider]);
       if (!event.rows.length) throw fail('先に最新の対戦表を取得してください。', 404);
       if (deckId === null) {
         await client.query('DELETE FROM deck_memos WHERE memo_event_id = $1 AND dmp_id = $2', [event.rows[0].id, dmpId]);
