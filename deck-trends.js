@@ -18,7 +18,7 @@ async function getDeckTrends(db,query){
     }
     events.push({...info,participantCount:summary.participantCount,registeredDeckCount:summary.registeredCount,
       registrationPercentage:summary.registeredCount/summary.participantCount*100,unregisteredCount:summary.unregisteredCount,
-      decks:summary.decks.map(({deckId,deckName,count})=>({deckId,deckName,count,percentage:count/summary.participantCount*100}))});
+      decks:summary.decks.map(({deckId,deckName,count,image_url})=>({deckId,deckName,count,image_url,percentage:count/summary.participantCount*100}))});
   }
   return {...filters,events,excludedEvents};
 }

@@ -375,3 +375,7 @@ hr {
 #deck-search { max-width:480px; width:100%; }
 #deck-add-panel { margin:16px 0; }
 #deck-add-panel summary { cursor:pointer; padding:12px 0; }
+
+.analysis-panel-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.analysis-panel-header h2 { min-width:0; overflow-wrap:anywhere; }
+.analysis-panel-header button { flex-shrink:0; min-height:44px; padding:8px 14px; }

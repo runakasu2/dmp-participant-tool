@@ -2467,6 +2467,8 @@ require(require("node:path").join(__dirname, "deck-image-upload.js")).installUpl
 
 require(require("node:path").join(__dirname,"deck-trends.js")).installDeckTrendRoutes(app,pool);
 
+require(require("node:path").join(__dirname,"deck-period-summary.js")).installPeriodSummaryRoutes(app,pool);
+
 app.listen(
   PORT,
   HOST,

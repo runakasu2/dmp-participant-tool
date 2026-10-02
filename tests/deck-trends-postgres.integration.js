@@ -1,5 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),{PGlite}=require('@electric-sql/pglite');
 const {getDeckTrends}=require('../deck-trends');
+const {buildPeriodSummary}=require('../deck-period-summary');
 const {buildEventDeckSummary,loadEventDeckRows}=require('../event-deck-summary');
 test('trend PostgreSQL: formats, boundaries, full event keys, aliases, denominator and missing data',async()=>{
  const db=new PGlite();let queries=0;const pool={query:async(...args)=>{queries++;return db.query(...args);}};
@@ -20,8 +21,13 @@ test('trend PostgreSQL: formats, boundaries, full event keys, aliases, denominat
  (5,'s','outside','1','Outside','2026-10-01',2,'original');
  INSERT INTO deck_history VALUES(1,'s','e','1','A'),(2,'s','e','1','aliasA'),(1,'s','e','2','B'),(1,'other','e','1','B'),(1,'s','outside','1','A');`);
  const result=await getDeckTrends(pool,{format:'original',startDate:'2026-09-01',endDate:'2026-09-30'});
+ const period=buildPeriodSummary(result);
+ assert.equal(period.totalEvents,3);assert.equal(period.includedEvents,2);assert.equal(period.missingEvents,1);
+ assert.equal(period.totalParticipants,6);assert.equal(period.registeredDecks,3);assert.equal(period.unregistered,3);
+ assert.equal(period.decks[0].count,2);assert.equal(period.decks[0].percentage,2/6*100);
+ assert.equal(period.decks[0].image_url,'https://example.com/a');
  assert.equal(queries,2);assert.deepEqual(result.events.map(e=>e.eventRecordId),[1,2]);
- assert.deepEqual(result.events[0].decks,[{deckId:1,deckName:'A',count:2,percentage:50}]);
+ assert.deepEqual(result.events[0].decks,[{deckId:1,deckName:'A',count:2,image_url:'https://example.com/a',percentage:50}]);
  assert.equal(result.events[0].unregisteredCount,2);assert.equal(result.events[1].decks[0].percentage,50);
  assert.equal(result.excludedEvents[0].reason,'unentered');assert.equal(result.excludedEvents[0].eventRecordId,4);
  const summary=buildEventDeckSummary({participant_count:4},await loadEventDeckRows(pool,[1]));

@@ -1218,9 +1218,23 @@ const reloadEventsButton =
   );
 
 
+function initializeAnalysisCloseButtons(){
+  for(const [buttonId,panelId,openerId] of [
+    ['close-deck-period','deck-period-summary','show-deck-period'],
+    ['close-deck-trends','deck-trends','show-deck-trends']
+  ]){
+    document.getElementById(buttonId).addEventListener('click',()=>{
+      document.getElementById(panelId).hidden=true;
+      document.getElementById(openerId).focus();
+    });
+  }
+}
+initializeAnalysisCloseButtons();
 let eventFilters=parseEventFilters({});
-const deckTrendControls=createDeckTrendControls(()=>parseEventFilters({format:eventFilters.format,
- startDate:document.getElementById('events-start-date').value,endDate:document.getElementById('events-end-date').value}));
+function readEventAnalysisFilters(){return parseEventFilters({format:eventFilters.format,
+ startDate:document.getElementById('events-start-date').value,endDate:document.getElementById('events-end-date').value});}
+const deckTrendControls=createDeckTrendControls(readEventAnalysisFilters);
+const deckPeriodControls=createDeckPeriodControls(readEventAnalysisFilters);
 const filterError=document.getElementById('event-filter-error');
 function restoreEventFilters(){
  try{eventFilters=parseEventFilters(Object.fromEntries(new URLSearchParams(location.search)));filterError.textContent='';}
@@ -1247,6 +1261,7 @@ const eventResetControls = createEventResetControls(afterReset => loadEvents(aft
 let eventsLoadVersion = 0;
 async function loadEvents(afterReset = false) {
   deckTrendControls.clear();
+  deckPeriodControls.clear();
   if (eventResetControls.busy && !afterReset) return;
   const version = ++eventsLoadVersion;
   eventResetControls.beginLoad();

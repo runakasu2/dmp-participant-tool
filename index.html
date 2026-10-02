@@ -348,12 +348,32 @@
         <label>開始日 <input id="events-start-date" type="date"></label>
         <label>終了日 <input id="events-end-date" type="date"></label>
         <button type="submit">検索</button><button type="button" id="event-period-reset">期間をリセット</button>
+        <button type="button" id="show-deck-period">期間母数を見る</button>
         <button type="button" id="show-deck-trends">母数推移を見る</button>
       </form>
       <p id="event-filter-error" role="status"></p>
       <p class="page-description">大会詳細・大会名から形式を判定できない大会は、フォーマット別一覧には表示されません。</p>
+      <section id="deck-period-summary" hidden>
+        <div class="analysis-panel-header">
+          <h2>期間母数</h2>
+          <button type="button" id="close-deck-period" aria-controls="deck-period-summary" aria-label="期間母数を閉じる">閉じる</button>
+        </div>
+        <p id="deck-period-status" role="status" style="white-space:pre-line"></p>
+        <div class="deck-view-buttons" role="group" aria-label="期間母数の表示">
+          <button type="button" id="period-list" aria-pressed="true">リスト表示</button>
+          <button type="button" id="period-pie" aria-pressed="false">円グラフ表示</button>
+        </div>
+        <div id="deck-period-list" class="table-scroll"><table>
+          <thead><tr><th>順位</th><th>デッキ名</th><th>使用人数</th><th>使用率</th></tr></thead>
+          <tbody id="deck-period-rows"></tbody>
+        </table></div>
+        <div id="deck-period-pie" class="deck-pie" hidden></div>
+      </section>
       <section id="deck-trends" hidden>
-        <h2>デッキ母数推移</h2>
+        <div class="analysis-panel-header">
+          <h2>デッキ母数推移</h2>
+          <button type="button" id="close-deck-trends" aria-controls="deck-trends" aria-label="デッキ母数推移を閉じる">閉じる</button>
+        </div>
         <p id="deck-trend-status" role="status"></p>
         <div class="deck-view-buttons" role="group" aria-label="推移の単位">
           <button id="trend-percentage" type="button" aria-pressed="true">使用率</button>
@@ -755,6 +775,7 @@
   <script src="deck-pie.js"></script>
   <script src="event-filters.js"></script>
   <script src="deck-trend-ui.js"></script>
+  <script src="deck-period-ui.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>
