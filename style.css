@@ -344,3 +344,34 @@ hr {
  .deck-pie-labeled { width:216%!important; max-width:none!important; margin-left:-58%; }
  .deck-pie { overflow:hidden; }
 }
+.event-period { display:flex; flex-wrap:wrap; align-items:end; gap:10px; }
+.event-period label { display:flex; flex-direction:column; gap:5px; }
+.event-period input { min-height:44px; box-sizing:border-box; max-width:100%; }
+#event-format-buttons { flex-wrap:wrap; }
+#event-filter-error { color:#a33; }
+
+.deck-format-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0; }
+.deck-format-tabs [aria-pressed="true"] { background:#334f90; color:white; }
+.deck-format-choices { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; border:1px solid #ddd; }
+.deck-format-choices label { display:flex; align-items:center; gap:6px; min-height:36px; }
+.deck-format-choices input { width:auto; }
+
+.trend-scroll { overflow-x:auto; max-width:100%; margin-top:16px; }
+.trend-scroll svg { display:block; max-width:none; height:340px; }
+.trend-scroll text { font-size:12px; fill:#445; }
+.trend-scroll circle { cursor:pointer; }
+.trend-scroll circle:focus { stroke:#111; stroke-width:3px; outline:none; }
+#deck-trend-choices { display:flex; flex-wrap:wrap; gap:12px; max-height:220px; overflow:auto; }
+#deck-trend-choices label { display:flex; align-items:center; gap:6px; min-height:40px; }
+#deck-trend-choices input { width:auto; }
+.trend-swatch { width:16px; height:4px; display:inline-block; }
+#deck-trend-point { overflow-wrap:anywhere; min-height:3em; }
+
+.deck-management-row { display:flex; justify-content:space-between; align-items:center; gap:16px; width:100%; min-height:48px; margin:0; padding:12px 16px; border:0; border-bottom:1px solid #dde1e8; border-radius:0; background:#fff; color:#26334a; text-align:left; }
+.deck-management-row:hover { background:#f1f5fb; }
+.deck-management-row:focus-visible { outline:2px solid #334f90; outline-offset:-2px; }
+.deck-management-row span:first-child { overflow-wrap:anywhere; }
+#deck-search-area { margin:12px 0; }
+#deck-search { max-width:480px; width:100%; }
+#deck-add-panel { margin:16px 0; }
+#deck-add-panel summary { cursor:pointer; padding:12px 0; }

@@ -39,7 +39,9 @@ function normalizeSugatool(event,entries,matches){
    table:seat?.table??null,side:seat?.side??null,bye:seat?.bye??false,dropped:entry.dropped===true,round});
  }
  participants.sort((a,b)=>(a.table??Infinity)-(b.table??Infinity)||(a.side??0)-(b.side??0)||String(a.entryNo??'').localeCompare(String(b.entryNo??''),'en',{numeric:true})||a.entryId.localeCompare(b.entryId));
- return {latestRound:round,participants,warning:!participants.length?'受付済み参加者が0人です。':round===null?'currentRoundがまだ設定されていません。受付済み参加者を卓なしで表示します。':null};
+ const formats=Array.isArray(event.gameFormat)?[...new Set(event.gameFormat)]:[];
+ const format=formats.length===1&&['original','advance','2block'].includes(formats[0])?formats[0]:null;
+ return {format,latestRound:round,participants,warning:!participants.length?'受付済み参加者が0人です。':round===null?'currentRoundがまだ設定されていません。受付済み参加者を卓なしで表示します。':null};
 }
 async function fetchSugatool(source,fetchImpl=fetch){
  async function get(suffix,label){

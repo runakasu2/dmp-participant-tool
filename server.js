@@ -1,3 +1,4 @@
+const {extractEventFormat}=require(require('node:path').join(__dirname,'event-format.js'));
 const {fetchEventParticipants} = require(require('node:path').join(__dirname, 'dmp-participants.js'));
 const {getDeckCatalog} = require(require("node:path").join(__dirname, "deck-catalog.js"));
 const express = require("express");
@@ -33,14 +34,14 @@ async function saveEventResults(eventInfo, participants) {
     active = true;
     // UPSERTで大会行をロックし、同じ大会の保存を直列化する。
     const event = await client.query(`
-      INSERT INTO events (shop_id, event_id, seq, event_date, event_name, participant_count)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO events (shop_id, event_id, seq, event_date, event_name, participant_count, format)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (shop_id, event_id, seq) DO UPDATE SET
         event_date = EXCLUDED.event_date, event_name = EXCLUDED.event_name,
-        participant_count = EXCLUDED.participant_count, updated_at = CURRENT_TIMESTAMP
+        format = COALESCE(EXCLUDED.format,events.format), participant_count = EXCLUDED.participant_count, updated_at = CURRENT_TIMESTAMP
       RETURNING id
     `, [String(eventInfo.shopId), String(eventInfo.eventId), String(eventInfo.held),
-      eventInfo.eventDate || null, eventInfo.eventName || null, rows.length]);
+      eventInfo.eventDate || null, eventInfo.eventName || null, rows.length,eventInfo.format || null]);
     for (const row of rows) {
       const player = await client.query(`
         INSERT INTO players (dmp_id, handle_name) VALUES ($1, $2)
@@ -79,7 +80,7 @@ app.get("/api/event-results", async (req, res) => {
   }
   try {
     const result = await pool.query(`
-      SELECT e.id, e.shop_id, e.event_id, e.seq, e.event_name, e.event_date,
+      SELECT e.id, e.shop_id, e.event_id, e.seq, e.event_name, e.event_date, e.format,
         r.rank, r.rank_raw, p.dmp_id, p.handle_name, dh.deck_name
       FROM events e
       LEFT JOIN event_results r ON r.event_record_id = e.id
@@ -103,7 +104,7 @@ app.get("/api/event-results", async (req, res) => {
     }));
     res.json({success: true, event: {
       shopId: first.shop_id, eventId: first.event_id, seq: first.seq,
-      eventName: first.event_name, eventDate: first.event_date
+      eventName: first.event_name, eventDate: first.event_date, format: first.format
     }, count: participants.length, participants});
   } catch (error) {
     console.error("保存済み大会結果取得エラー:", error);
@@ -389,7 +390,7 @@ const html =
   return {
 
     eventName,
-    
+    format: extractEventFormat(html,eventName),
     year:
       dateInfo.year,
 
@@ -714,6 +715,18 @@ await pool.query(`
         require("node:path").join(__dirname, "migrations/007_deck_images.sql"), "utf8"
       ));
 
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/008_event_formats.sql"), "utf8"
+      ));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/009_explicit_event_format.sql"), "utf8"
+      ));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/010_deck_formats.sql"), "utf8"
+      ));
+
       res.json({
         success: true,
 
@@ -844,6 +857,11 @@ function predictDeck(recentDecks, manual, unavailable = false) {
   };
 }
 
+async function savedEventFormat(shopId,eventId,seq) {
+  const result=await pool.query('SELECT format FROM events WHERE shop_id=$1 AND event_id=$2 AND seq=$3',[String(shopId),String(eventId),String(seq)]);
+  return result.rows[0]?.format || null;
+}
+
 async function loadPredictionData(shopId, eventId, seq) {
   const [decks, overrides] = await Promise.all([
     getDeckCatalog(pool, true),
@@ -894,10 +912,10 @@ app.put("/api/event-deck-prediction", async (req, res) => {
     if (!player.rows.length) throw Object.assign(new Error("プレイヤーが見つかりません。"), {status: 404});
     if (mode === "manual") {
       await client.query(`
-        INSERT INTO events (shop_id, event_id, seq, event_date, event_name)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (shop_id, event_id, seq) DO NOTHING
-      `, [shopId, eventId, seq, detail?.eventDate || null, detail?.eventName || null]);
+        INSERT INTO events (shop_id, event_id, seq, event_date, event_name, format)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (shop_id, event_id, seq) DO UPDATE SET format=COALESCE(EXCLUDED.format,events.format)
+      `, [shopId, eventId, seq, detail?.eventDate || null, detail?.eventName || null,detail?.format || null]);
     }
     const event = await client.query("SELECT id FROM events WHERE shop_id = $1 AND event_id = $2 AND seq = $3 FOR UPDATE", [shopId, eventId, seq]);
     if (event.rows.length) {
@@ -929,7 +947,7 @@ app.put("/api/event-deck-prediction", async (req, res) => {
 });
 
 // 全参加者の履歴を一度に取得。大会内の重複除去→開催日で順位付け。
-async function fetchRecentDecks(dmpIds, {shopId, eventId, seq, eventDate}) {
+async function fetchRecentDecks(dmpIds, {shopId, eventId, seq, eventDate, format = null}) {
   const result = await pool.query(`
     WITH latest AS (
       SELECT p.dmp_id, h.*,
@@ -944,6 +962,7 @@ async function fetchRecentDecks(dmpIds, {shopId, eventId, seq, eventDate}) {
       LEFT JOIN events e ON e.shop_id = h.shop_id
         AND e.event_id = h.event_id AND e.seq = h.seq
       WHERE p.dmp_id = ANY($1::text[])
+        AND ($6::text IS NULL OR e.format = $6::text)
         AND h.shop_id IS NOT NULL AND h.seq IS NOT NULL
         AND NOT (h.shop_id = $2 AND h.event_id = $3 AND h.seq = $4)
     ), ranked AS (
@@ -959,7 +978,7 @@ async function fetchRecentDecks(dmpIds, {shopId, eventId, seq, eventDate}) {
       event_name, deck_name
     FROM ranked WHERE recent_number <= 3
     ORDER BY dmp_id, recent_number
-  `, [dmpIds, String(shopId), String(eventId), String(seq), eventDate]);
+  `, [dmpIds, String(shopId), String(eventId), String(seq), eventDate, ["original","advance","2block"].includes(format) ? format : null]);
   const histories = new Map();
   for (const row of result.rows) {
     if (!histories.has(row.dmp_id)) histories.set(row.dmp_id, []);
@@ -1017,19 +1036,24 @@ app.post(
       let recentDecksStatus = "ok";
       let recentDecksMessage = null;
       let histories = new Map();
-      if (participants.length) {
+      let participantEventFormat = null;
+      {
         try {
           const dateResult = await pool.query(`
-            SELECT event_date::text AS event_date FROM events
+            SELECT event_date::text AS event_date,format FROM events
             WHERE shop_id = $1 AND event_id = $2 AND seq = $3
           `, [String(shopId), String(eventId), String(seq)]);
           let eventDate = dateResult.rows[0]?.event_date;
-          if (!eventDate) {
+          participantEventFormat = dateResult.rows[0]?.format || null;
+          try {
             const detail = await fetchEventDetail("https://www.dmp-ranking.com/event.asp?" +
               new URLSearchParams({ShopID: shopId, EventID: eventId, Seq: seq}));
             eventDate = detail.eventDate;
+            participantEventFormat = detail.format || participantEventFormat;
           }
-          histories = await fetchRecentDecks(participants.map(p => String(p.id)), {shopId, eventId, seq, eventDate});
+          catch (error) { if (!eventDate) throw error; }
+          participantEventFormat = ["original","advance","2block"].includes(participantEventFormat) ? participantEventFormat : null;
+          if (participants.length) histories = await fetchRecentDecks(participants.map(p => String(p.id)), {shopId, eventId, seq, eventDate, format:participantEventFormat});
         } catch (error) {
           console.error("直近デッキ履歴取得エラー:", error);
           recentDecksStatus = "unavailable";
@@ -1046,6 +1070,7 @@ app.post(
           participants.length,
 
         decks: predictionData.decks,
+        format: participantEventFormat,
         recentDecksStatus,
         recentDecksMessage,
         participants: participants.map(participant => ({
@@ -1371,6 +1396,7 @@ app.post(
         );
 
       await saveEventResults(eventInfo, participants);
+      eventInfo.format = await savedEventFormat(eventInfo.shopId,eventInfo.eventId,eventInfo.held);
 
       // --------------------------
       // ブラウザへ返す
@@ -1621,7 +1647,8 @@ app.get(
   async (req, res) => {
     try {
 
-      const result = await pool.query(require(require("node:path").join(__dirname, "event-catalog.js")).EVENT_CATALOG_SQL);
+      const catalog = require(require("node:path").join(__dirname, "event-catalog.js")).filteredEventCatalog(req.query);
+      const result = await pool.query(catalog.sql,catalog.params);
 
       res.json({
         success: true,
@@ -1634,6 +1661,8 @@ app.get(
       });
 
     } catch (error) {
+      if(error.status===400)return res.status(400).json({success:false,error:error.message});
+
 
       console.error(
         "大会一覧取得エラー:",
@@ -1735,193 +1764,9 @@ app.get(
         eventResult.rows[0];
 
 
-      // --------------------------
-      // この大会のデッキ・使用者取得
-      // --------------------------
-
-      const deckResult =
-        await pool.query(
-          `
-            SELECT
-              dh.deck_name,
-              master.id AS deck_id, master.image_url,
-              p.dmp_id,
-              p.handle_name
-
-            FROM deck_history dh
-
-            INNER JOIN players p
-              ON dh.player_id = p.id
-
-            LEFT JOIN LATERAL (
-              SELECT d.id,d.image_url FROM decks d
-              WHERE LOWER(d.name)=LOWER(dh.deck_name) OR EXISTS (
-                SELECT 1 FROM deck_aliases a WHERE a.deck_id=d.id AND LOWER(a.alias)=LOWER(dh.deck_name))
-              ORDER BY CASE WHEN LOWER(d.name)=LOWER(dh.deck_name) THEN 0 ELSE 1 END,d.id LIMIT 1
-            ) master ON true
-            WHERE
-              dh.shop_id = $1
-              AND dh.event_id = $2
-              AND dh.seq = $3
-
-            ORDER BY
-              dh.deck_name ASC,
-              p.handle_name ASC;
-          `,
-          [
-            String(shopId),
-            String(eventId),
-            String(seq)
-          ]
-        );
-
-
-      // --------------------------
-      // デッキごとにまとめる
-      // --------------------------
-
-      const deckMap =
-        new Map();
-
-
-      deckResult.rows.forEach(
-        (row) => {
-
-          const deckName =
-            row.deck_name;
-
-
-          if (
-            !deckMap.has(
-              deckName
-            )
-          ) {
-
-            deckMap.set(
-              deckName,
-              {
-                deckName:
-                  deckName,
-
-                deckId: row.deck_id,
-                image_url: row.image_url,
-                count:
-                  0,
-
-                players:
-                  []
-              }
-            );
-          }
-
-
-          const deck =
-            deckMap.get(
-              deckName
-            );
-
-
-          deck.count +=
-            1;
-
-
-          deck.players.push({
-            dmpId:
-              row.dmp_id,
-
-            handleName:
-              row.handle_name
-          });
-        }
-      );
-
-
-      const participantCount =
-        Number(
-          event.participant_count
-        ) || 0;
-
-
-      const registeredCount =
-        deckResult.rows.length;
-
-
-      const unregisteredCount =
-        Math.max(
-          0,
-          participantCount -
-          registeredCount
-        );
-
-
-      const decks =
-        Array.from(
-          deckMap.values()
-        )
-          .map(
-            (deck) => {
-
-              const percentage =
-                participantCount > 0
-                  ? (
-                      deck.count /
-                      participantCount *
-                      100
-                    ).toFixed(1)
-                  : "0.0";
-
-
-              return {
-                ...deck,
-
-                percentage:
-                  percentage
-              };
-            }
-          )
-          .sort(
-            (a, b) => {
-
-              if (
-                b.count !==
-                a.count
-              ) {
-
-                return (
-                  b.count -
-                  a.count
-                );
-              }
-
-
-              return (
-                a.deckName.localeCompare(
-                  b.deckName,
-                  "ja"
-                )
-              );
-            }
-          );
-
-
-      res.json({
-        success: true,
-
-        event:
-          event,
-
-        participantCount:
-          participantCount,
-
-        registeredCount:
-          registeredCount,
-
-        unregisteredCount:
-          unregisteredCount,
-
-        decks:
-          decks
-      });
+      const {loadEventDeckRows,buildEventDeckSummary}=require(require('node:path').join(__dirname,'event-deck-summary.js'));
+      const rows=await loadEventDeckRows(pool,[event.id]);
+      res.json({success:true,event,...buildEventDeckSummary(event,rows)});
 
 
     } catch (error) {
@@ -2257,7 +2102,9 @@ app.get(
   "/api/decks",
   async (req, res) => {
     try {
-      const result = await getDeckCatalog(pool, req.query?.sort === "usage");
+      const format = req.query?.format;
+      if (format != null && !['original','advance','2block'].includes(format)) return res.status(400).json({success:false,error:'フォーマットが不正です。'});
+      const result = await getDeckCatalog(pool, req.query?.sort === "usage", format);
 
       res.json({
         success: true,
@@ -2303,19 +2150,15 @@ app.post(
       }
 
 
-      const result =
-        await pool.query(
-          `
-            INSERT INTO decks (
-              name
-            )
-            VALUES ($1)
-            RETURNING
-              id,
-              name;
-          `,
-          [name]
-        );
+      const formats = req.body.formats;
+      if (!Array.isArray(formats) || !formats.length || formats.some(f=>!['original','advance','2block'].includes(f)))
+        return res.status(400).json({success:false,error:'対応フォーマットを1つ以上選択してください。'});
+      const result = await pool.query(`WITH added AS (
+        INSERT INTO decks(name) VALUES ($1) RETURNING id,name
+      ), memberships AS (
+        INSERT INTO deck_formats(deck_id,format) SELECT added.id,f FROM added CROSS JOIN unnest($2::text[]) f
+        ON CONFLICT DO NOTHING
+      ) SELECT * FROM added`, [name,[...new Set(formats)]]);
 
 
       res.json({
@@ -2352,6 +2195,23 @@ app.post(
 
 
 // ----------------------------------------
+// Membership edits only affect future selection candidates.
+app.put('/api/decks/:id/formats', async (req,res)=>{
+  const id=Number(req.params.id), formats=req.body?.formats;
+  if(!Number.isInteger(id)||id<=0||!Array.isArray(formats)||!formats.length||formats.some(f=>!['original','advance','2block'].includes(f)))
+    return res.status(400).json({success:false,error:'対応フォーマットを1つ以上選択してください。'});
+  let client;
+  try {
+    client=await pool.connect(); await client.query('BEGIN');
+    const deck=await client.query('SELECT id FROM decks WHERE id=$1 FOR UPDATE',[id]);
+    if(!deck.rows.length){await client.query('ROLLBACK');return res.status(404).json({success:false,error:'デッキが見つかりません。'});}
+    await client.query('DELETE FROM deck_formats WHERE deck_id=$1',[id]);
+    await client.query('INSERT INTO deck_formats(deck_id,format) SELECT $1,unnest($2::text[])',[id,[...new Set(formats)]]);
+    await client.query('COMMIT');res.json({success:true,formats:[...new Set(formats)]});
+  } catch(error){if(client)await client.query('ROLLBACK');console.error('デッキ所属更新エラー:',error);res.status(500).json({success:false,error:'対応フォーマットを保存できませんでした。'});}
+  finally{client?.release();}
+});
+
 // 別名を追加
 // ----------------------------------------
 
@@ -2671,6 +2531,8 @@ app.post("/api/decks/:id/merge", async (req, res) => {
     );
 
     await client.query("UPDATE decks SET image_url=COALESCE(image_url,$2), updated_at = CURRENT_TIMESTAMP WHERE id = $1", [targetId,source.image_url || null]);
+    await client.query(`INSERT INTO deck_formats(deck_id,format)
+      SELECT $2,format FROM deck_formats WHERE deck_id=$1 ON CONFLICT DO NOTHING`,[sourceId,targetId]);
     await client.query("DELETE FROM decks WHERE id = $1", [sourceId]);
     await client.query("COMMIT");
     inTransaction = false;
@@ -2711,6 +2573,8 @@ require(require('node:path').join(__dirname, 'event-reset.js')).installEventRese
 require(require("node:path").join(__dirname, "event-catalog.js")).installDeckImageRoute(app, pool);
 
 require(require("node:path").join(__dirname, "deck-image-upload.js")).installUploadRoute(app,pool,express);
+
+require(require("node:path").join(__dirname,"deck-trends.js")).installDeckTrendRoutes(app,pool);
 
 app.listen(
   PORT,

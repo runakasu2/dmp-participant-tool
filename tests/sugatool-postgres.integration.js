@@ -12,11 +12,12 @@ test('Sugatool saves by provider/event UUID/DMP ID, reloads decks and archives a
  await call('get','/api/setup-db');await db.exec("INSERT INTO decks(name) VALUES ('代表デッキ')");
  const id='dcb0aac1-ab7f-4261-b997-6614e93cc8d2',entry='48380b24-dc2b-4fee-a063-87acd19bc8b1';
  const entries=[{entryId:entry,playerName:'未登録player',duemaId:7496,isReception:true,dropped:true}];
- installMemoRoutes(app,pool,async url=>({ok:true,json:async()=>url.endsWith('/entries')?entries:url.includes('/matches?')?[]:{eventId:id,currentRound:5}}),async()=>({shopId:'s',eventId:'e',held:'1',eventName:'大会',eventDate:'2026-10-01'}));
+ installMemoRoutes(app,pool,async url=>({ok:true,json:async()=>url.endsWith('/entries')?entries:url.includes('/matches?')?[]:{eventId:id,currentRound:5,gameFormat:['2block']}}),async()=>({shopId:'s',eventId:'e',held:'1',eventName:'大会',eventDate:'2026-10-01'}));
  const body={url:'https://sugatool.nojigikucs.com/events/'+id+'/matches',detailUrl:'test'};
- let data=await call('post','/api/deck-memo/matching',body);assert.equal(data.participantCount,1);assert.equal(data.participants[0].table,null);
+ let data=await call('post','/api/deck-memo/matching',body);assert.equal(data.format,'2block');assert.equal(data.participantCount,1);assert.equal(data.participants[0].table,null);
+ await db.exec("UPDATE events SET format='advance' WHERE shop_id='s'");
  await call('put','/api/deck-memo',{url:body.url,memoEventId:data.memoEventId,dmpId:'7496',deckId:1});
- data=await call('post','/api/deck-memo/matching',body);assert.equal(data.participants[0].deckId,1);
+ data=await call('post','/api/deck-memo/matching',body);assert.equal(data.participants[0].deckId,1);assert.equal(data.format,'advance');assert.equal(data.event.format,'advance');
  const archive=await call('post','/api/deck-memo/archives',{memoEventId:data.memoEventId});
  const rows=(await db.query('SELECT a.source,p.dmp_id,p.deck_id,p.handle_name FROM deck_memo_archives a JOIN deck_memo_archive_players p ON a.id=p.archive_id')).rows;
  assert.deepEqual(rows,[{source:'sugatool',dmp_id:'7496',deck_id:1,handle_name:'未登録player'}]);

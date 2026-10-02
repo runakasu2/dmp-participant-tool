@@ -27,6 +27,16 @@ LEFT JOIN (
  GROUP BY er.event_record_id
 ) b ON b.event_record_id=e.id
 ORDER BY e.event_date DESC NULLS LAST,e.id DESC`;
+function filteredEventCatalog(query={}){
+ const {parseEventFilters}=require('./event-filters');
+ let filters;try{filters=parseEventFilters(query);}catch(error){error.status=400;throw error;}
+ const clauses=[],params=[];
+ // Keep unfiltered API access compatible; the UI always sends its chosen format.
+ if(query.format!==undefined){params.push(filters.format);clauses.push('format=$'+params.length);}
+ for(const [key,operator] of [['startDate','>='],['endDate','<=']])if(filters[key]){params.push(filters[key]);clauses.push('event_date'+operator+'$'+params.length+'::date');}
+ const cte='WITH selected_events AS (SELECT * FROM events'+(clauses.length?' WHERE '+clauses.join(' AND '):'')+') ';
+ return {sql:cte+EVENT_CATALOG_SQL.replace('FROM events e','FROM selected_events e').replace('JOIN events ev','JOIN selected_events ev'),params};
+}
 function parseImageUrl(value) {
   if (value === '' || value === null) return null;
   if (typeof value !== 'string' || value.length > 2048) throw Error('画像のHTTPS URLを入力してください。');
@@ -46,4 +56,4 @@ function installDeckImageRoute(app,pool) {
     } catch(error){console.error('デッキ画像保存エラー:',error);res.status(500).json({success:false,error:'画像URLを保存できませんでした。'});}
   });
 }
-module.exports={EVENT_CATALOG_SQL,parseImageUrl,installDeckImageRoute};
+module.exports={filteredEventCatalog,EVENT_CATALOG_SQL,parseImageUrl,installDeckImageRoute};

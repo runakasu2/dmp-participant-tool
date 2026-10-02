@@ -118,12 +118,13 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
       let event;
       if (detail) {
         const linked = await pool.query(`
-          INSERT INTO events (shop_id, event_id, seq, event_name, event_date)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO events (shop_id, event_id, seq, event_name, event_date, format)
+          VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (shop_id, event_id, seq) DO UPDATE SET
-            event_name = EXCLUDED.event_name, event_date = EXCLUDED.event_date, updated_at = CURRENT_TIMESTAMP
-          RETURNING id
-        `, [detail.shopId, detail.eventId, detail.held, detail.eventName, detail.eventDate]);
+            format=COALESCE(events.format,EXCLUDED.format), event_name = EXCLUDED.event_name, event_date = EXCLUDED.event_date, updated_at = CURRENT_TIMESTAMP
+          RETURNING id,format
+        `, [detail.shopId, detail.eventId, detail.held, detail.eventName, detail.eventDate,detail.format || null]);
+        detail.format=linked.rows[0].format || null;
         event = await pool.query(`
           INSERT INTO deck_memo_events (source, admin_key, source_url, event_record_id)
           VALUES ($4, $1, $2, $3)
@@ -156,7 +157,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
       const participants = matching.participants.map(player => ({...player,
         deckId: byId.get(player.dmpId)?.deck_id ?? null, deckName: byId.get(player.dmpId)?.deck_name ?? null}));
       res.set?.('Cache-Control', 'no-store');
-      res.json({success: true, provider: source.provider, event: detail, adminKey, sourceUrl, memoEventId: event.rows[0].id,
+      res.json({success: true, provider: source.provider, event: detail, format:detail?.format || matching.format || null, adminKey, sourceUrl, memoEventId: event.rows[0].id,
         latestRound: matching.latestRound, participants, participantCount: participants.length,
         registeredCount: participants.filter(player => player.deckId !== null).length,
         warning: matching.warning || (users.failed ? '参加者名一覧を取得できなかったため、対戦表の名前を表示しています。' : null)});

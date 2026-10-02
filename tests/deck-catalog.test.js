@@ -10,13 +10,14 @@ test('catalog query counts each history once; aliases, zero usage, rename, merge
   await getDeckCatalog({query:async query=>{calls++;sql=query;return{rows:[]};}},true);
   assert.equal(calls,1);
   // Execute the production CTE with only cast/JSON aggregate dialect adaptation.
-  sql=sql.replace('::integer','').replace('json_agg(a.alias ORDER BY a.alias)','json_group_array(a.alias)');
+  sql=sql.replace('::integer','').replace('json_agg(a.alias ORDER BY a.alias)','json_group_array(a.alias)').replace('json_agg(f.format ORDER BY f.format)','json_group_array(f.format)');
   const result=spawnSync('python3',['-c',`
 import sqlite3,json,sys
 sql=json.load(sys.stdin)
 c=sqlite3.connect(':memory:');c.row_factory=sqlite3.Row
 c.executescript("""
 CREATE TABLE decks(id INTEGER PRIMARY KEY,name TEXT,image_url TEXT);
+CREATE TABLE deck_formats(deck_id INTEGER,format TEXT);
 CREATE TABLE deck_aliases(deck_id INTEGER,alias TEXT UNIQUE);
 CREATE TABLE deck_history(deck_name TEXT);
 INSERT INTO decks(id,name) VALUES(1,'A'),(2,'B'),(3,'C'),(4,'D');

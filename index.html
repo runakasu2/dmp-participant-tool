@@ -159,6 +159,7 @@
           参加表明者
         </h2>
 
+        <p id="participant-format" aria-live="polite">大会フォーマット：不明</p>
         <p id="participant-count">
           取得件数：0人
         </p>
@@ -338,6 +339,30 @@
       </div>
 
 
+      <div id="event-format-buttons" class="deck-view-buttons" role="group" aria-label="大会フォーマット">
+        <button type="button" data-format="original" aria-pressed="true">オリジナル</button>
+        <button type="button" data-format="advance" aria-pressed="false">アドバンス</button>
+        <button type="button" data-format="2block" aria-pressed="false">2ブロック</button>
+      </div>
+      <form id="event-filter-form" class="event-period">
+        <label>開始日 <input id="events-start-date" type="date"></label>
+        <label>終了日 <input id="events-end-date" type="date"></label>
+        <button type="submit">検索</button><button type="button" id="event-period-reset">期間をリセット</button>
+        <button type="button" id="show-deck-trends">母数推移を見る</button>
+      </form>
+      <p id="event-filter-error" role="status"></p>
+      <p class="page-description">大会詳細・大会名から形式を判定できない大会は、フォーマット別一覧には表示されません。</p>
+      <section id="deck-trends" hidden>
+        <h2>デッキ母数推移</h2>
+        <p id="deck-trend-status" role="status"></p>
+        <div class="deck-view-buttons" role="group" aria-label="推移の単位">
+          <button id="trend-percentage" type="button" aria-pressed="true">使用率</button>
+          <button id="trend-count" type="button" aria-pressed="false">人数</button>
+        </div>
+        <fieldset><legend>表示デッキ</legend><div id="deck-trend-choices"></div></fieldset>
+        <div id="deck-trend-chart" class="trend-scroll"></div>
+        <p id="deck-trend-point" aria-live="polite"></p>
+      </section>
       <section id="events">
 
         <p id="event-count">
@@ -631,12 +656,12 @@
   </div>
 
 
+  <div id="deck-format-tabs" class="deck-format-tabs" aria-label="デッキのフォーマット"></div>
+
   <!-- 正式デッキ名追加 -->
 
-  <section>
-    <h2>
-      デッキを追加
-    </h2>
+  <details id="deck-add-panel">
+    <summary>＋ デッキを追加</summary>
 
     <div class="input-area">
       <input
@@ -645,19 +670,22 @@
         placeholder="正式デッキ名"
       >
 
+      <div id="deck-add-formats"></div>
       <button id="deck-add-button">
         追加
       </button>
     </div>
-  </section>
+  </details>
 
 
   <!-- 登録済みデッキ -->
 
   <section>
-    <h2>
-      登録済みデッキ
-    </h2>
+    <button type="button" id="deck-back-to-list" hidden>← デッキ一覧</button>
+    <h2 id="deck-management-heading">登録済みデッキ</h2>
+    <div id="deck-search-area"><label for="deck-search">デッキを検索</label>
+      <input type="search" id="deck-search" placeholder="デッキ名で検索">
+    </div>
 
     <p id="deck-count">
       登録数：0
@@ -725,6 +753,8 @@
   <script src="event-cards.js"></script>
   <script src="deck-image-ui.js"></script>
   <script src="deck-pie.js"></script>
+  <script src="event-filters.js"></script>
+  <script src="deck-trend-ui.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>

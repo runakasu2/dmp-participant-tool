@@ -14,10 +14,11 @@ async function loadTcgMemo({source,detail,pool,fetchImpl}) {
   let client,active=false,releaseError;
   try {
     client=await pool.connect();await client.query('BEGIN');active=true;
-    const event=await client.query(`INSERT INTO events (shop_id,event_id,seq,event_name,event_date)
-      VALUES ($1,$2,$3,$4,$5) ON CONFLICT (shop_id,event_id,seq) DO UPDATE SET
-      event_name=EXCLUDED.event_name,event_date=EXCLUDED.event_date,updated_at=CURRENT_TIMESTAMP RETURNING id`,
-      [detail.shopId,detail.eventId,detail.held,detail.eventName,detail.eventDate]);
+    const event=await client.query(`INSERT INTO events (shop_id,event_id,seq,event_name,event_date,format)
+      VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (shop_id,event_id,seq) DO UPDATE SET
+      format=COALESCE(events.format,EXCLUDED.format),event_name=EXCLUDED.event_name,event_date=EXCLUDED.event_date,updated_at=CURRENT_TIMESTAMP RETURNING id,format`,
+      [detail.shopId,detail.eventId,detail.held,detail.eventName,detail.eventDate,detail.format || null]);
+    detail.format=event.rows[0].format || null;
     const memo=await client.query(`INSERT INTO deck_memo_events (source,admin_key,source_url,event_record_id)
       VALUES ('tcg_meister',$1,$2,$3) ON CONFLICT (source,admin_key,event_record_id) DO UPDATE SET
       source_url=EXCLUDED.source_url,updated_at=CURRENT_TIMESTAMP RETURNING id`,[source.tid,source.sourceUrl,event.rows[0].id]);

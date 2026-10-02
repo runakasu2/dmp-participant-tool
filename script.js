@@ -28,18 +28,9 @@ function createPredictionCell(participant, decks, event, onPredictionChanged = (
   cell.addEventListener("click", event => event.stopPropagation());
   let prediction = participant.prediction;
   const label = document.createElement("div");
-  const select = document.createElement("select");
+  const select = createDeckSelect(decks, {format:event.format});
   select.setAttribute("aria-label", participant.name + "の手動予想デッキ");
-  const unknown = document.createElement("option");
-  unknown.value = "";
-  unknown.textContent = "不明";
-  select.appendChild(unknown);
-  for (const deck of decks) {
-    const option = document.createElement("option");
-    option.value = String(deck.id);
-    option.textContent = deck.name;
-    select.appendChild(option);
-  }
+  select.children[0].textContent = '不明';
   const save = document.createElement("button");
   save.textContent = "手動で保存";
   const reset = document.createElement("button");
@@ -50,7 +41,7 @@ function createPredictionCell(participant, decks, event, onPredictionChanged = (
     label.textContent = (prediction.finalDeckName || "不明") +
       (prediction.source === "manual" ? "（手動）" : prediction.autoStatus === "unavailable" ? "（履歴取得失敗）" : "（自動）");
     const current = prediction.hasManualPrediction ? prediction.manualDeckId : decks.find(d => d.name === prediction.autoDeckName)?.id;
-    select.value = current == null ? "" : String(current);
+    select.setSavedDeck(current, prediction.finalDeckName);
     reset.disabled = !prediction.hasManualPrediction;
   };
   const update = async mode => {
@@ -491,6 +482,7 @@ button.addEventListener(
         "";
 
 
+      document.getElementById("participant-format").textContent = "大会フォーマット：" + (DECK_FORMAT_LABELS[data.format] || "不明");
       predictionParticipants = data.participants;
       predictionDecks = data.decks;
       renderPredictionSummary();
@@ -571,7 +563,7 @@ button.addEventListener(
           );
 
 
-          row.appendChild(createPredictionCell(participant, data.decks, {shopId, eventId, seq}, () => {
+          row.appendChild(createPredictionCell(participant, data.decks, {shopId, eventId, seq, format:data.format}, () => {
             if (predictionParticipants === displayedParticipants) renderPredictionSummary();
           }));
 
@@ -621,6 +613,7 @@ resetButton.addEventListener(
   () => {
     predictionParticipants = [];
     predictionDecks = [];
+    document.getElementById("participant-format").textContent = "大会フォーマット：不明";
     renderPredictionSummary();
 
 
@@ -932,7 +925,7 @@ resultButton.addEventListener(
 
 
           const savedDeck = savedDecks[String(participant.id)];
-          const deckInput = createDeckSelect(masterData.decks, {deckName:savedDeck, label:participant.name + "の使用デッキ"});
+          const deckInput = createDeckSelect(masterData.decks, {format:data.format, deckName:savedDeck, label:participant.name + "の使用デッキ"});
           resultDeckInputs.set(String(participant.id), deckInput);
           const deckNote = document.createElement("small");
           deckNote.textContent = deckInput.unmatchedDeckName
@@ -1225,9 +1218,35 @@ const reloadEventsButton =
   );
 
 
+let eventFilters=parseEventFilters({});
+const deckTrendControls=createDeckTrendControls(()=>parseEventFilters({format:eventFilters.format,
+ startDate:document.getElementById('events-start-date').value,endDate:document.getElementById('events-end-date').value}));
+const filterError=document.getElementById('event-filter-error');
+function restoreEventFilters(){
+ try{eventFilters=parseEventFilters(Object.fromEntries(new URLSearchParams(location.search)));filterError.textContent='';}
+ catch(error){eventFilters=parseEventFilters({});filterError.textContent=error.message;}
+ document.getElementById('events-start-date').value=eventFilters.startDate;
+ document.getElementById('events-end-date').value=eventFilters.endDate;
+ document.querySelectorAll('[data-format]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.format===eventFilters.format)));
+}
+function applyEventFilters(format=eventFilters.format,reset=false){
+ if(eventResetControls.busy)return;
+ try{
+  const next=parseEventFilters({format,startDate:reset?'':document.getElementById('events-start-date').value,endDate:reset?'':document.getElementById('events-end-date').value});
+  const url=new URL(location.href);for(const key of ['format','startDate','endDate'])url.searchParams.delete(key);
+  new URLSearchParams(eventFilterQuery(next)).forEach((value,key)=>url.searchParams.set(key,value));
+  history.pushState(null,'',url);restoreEventFilters();void loadEvents();
+ }catch(error){filterError.textContent=error.message;}
+}
+restoreEventFilters();
+document.getElementById('event-filter-form').addEventListener('submit',e=>{e.preventDefault();applyEventFilters();});
+document.getElementById('event-period-reset').addEventListener('click',()=>applyEventFilters(eventFilters.format,true));
+document.querySelectorAll('[data-format]').forEach(button=>button.addEventListener('click',()=>applyEventFilters(button.dataset.format)));
+window.addEventListener('popstate',()=>{if(eventResetControls.busy)return;restoreEventFilters();menuEvents.click();});
 const eventResetControls = createEventResetControls(afterReset => loadEvents(afterReset));
 let eventsLoadVersion = 0;
 async function loadEvents(afterReset = false) {
+  deckTrendControls.clear();
   if (eventResetControls.busy && !afterReset) return;
   const version = ++eventsLoadVersion;
   eventResetControls.beginLoad();
@@ -1249,7 +1268,7 @@ async function loadEvents(afterReset = false) {
 
     const response =
       await fetch(
-        "/api/events"
+        "/api/events?" + eventFilterQuery(eventFilters)
       );
 
 
@@ -1283,7 +1302,7 @@ async function loadEvents(afterReset = false) {
       data.events.length === 0
     ) {
 
-      list.textContent = '保存されている大会はありません。';
+      list.textContent = '条件に一致する大会がありません。';
 
       return;
     }
@@ -2554,7 +2573,25 @@ backPlayersButton.addEventListener(
 // デッキ一覧を読み込む
 // ========================================
 
+let deckManagementFormat = 'original';
+let selectedDeckId = null;
+let deckSearchQuery = '';
+let deckManagementData = {decks:[]};
+let deckLoadVersion = 0;
+let deckAddFormats;
+function initializeDeckFormats() {
+  const tabs=document.getElementById('deck-format-tabs');
+  for(const [format,label] of [...Object.entries(DECK_FORMAT_LABELS),['all','すべて（所属を編集）']]) {
+    const button=document.createElement('button');button.textContent=label;button.type='button';
+    button.dataset.deckFormat=format;button.addEventListener('click',()=>{deckManagementFormat=format;selectedDeckId=null;renderDeckManagement();});tabs.appendChild(button);
+  }
+  document.getElementById('deck-search').addEventListener('input',event=>{deckSearchQuery=event.target.value;renderDeckManagement();});
+  document.getElementById('deck-back-to-list').addEventListener('click',()=>{selectedDeckId=null;renderDeckManagement();});
+  deckAddFormats=createFormatChoices(['original']);document.getElementById('deck-add-formats').appendChild(deckAddFormats);
+}
+initializeDeckFormats();
 async function loadDecks() {
+  const request=++deckLoadVersion;
   try {
     const response =
       await fetch(
@@ -2574,6 +2611,22 @@ async function loadDecks() {
     }
 
 
+    if(request!==deckLoadVersion)return;
+    deckManagementData=data;
+    if(selectedDeckId!==null&&!data.decks.some(deck=>deck.id===selectedDeckId))selectedDeckId=null;
+    renderDeckManagement();
+  } catch(error) {
+    if(request===deckLoadVersion)alert('デッキ一覧を取得できませんでした。\n'+error.message);
+  }
+}
+function renderDeckManagement() {
+  try {
+    const data=deckManagementData;
+    const editing=selectedDeckId!==null;
+    document.getElementById('deck-back-to-list').hidden=!editing;
+    document.getElementById('deck-search-area').hidden=editing;
+    document.getElementById('deck-add-panel').hidden=editing;
+    document.getElementById('deck-management-heading').textContent=editing?'デッキを編集':'登録済みデッキ';
     const deckCount =
       document.getElementById(
         "deck-count"
@@ -2585,18 +2638,33 @@ async function loadDecks() {
       );
 
 
+    for(const button of document.getElementById('deck-format-tabs').children) button.setAttribute('aria-pressed',String(button.dataset.deckFormat===deckManagementFormat));
+    const query=deckSearchQuery.normalize('NFKC').toLocaleLowerCase().trim();
+    const visibleDecks=deckCandidates(data.decks,deckManagementFormat).filter(deck=>deck.name.normalize('NFKC').toLocaleLowerCase().includes(query));
     deckCount.textContent =
       "登録数：" +
-      data.decks.length;
+      visibleDecks.length;
 
 
     deckList.innerHTML = "";
-
+    deckCount.hidden=editing;
+    if(!editing){
+      if(!visibleDecks.length)deckList.textContent='条件に一致するデッキがありません。';
+      for(const deck of visibleDecks){
+        const row=document.createElement('button');row.type='button';row.className='deck-management-row';
+        const label=document.createElement('span');label.textContent=deck.name;
+        const arrow=document.createElement('span');arrow.textContent='›';arrow.setAttribute('aria-hidden','true');
+        row.setAttribute('aria-label',deck.name+'を編集');row.append(label,arrow);
+        row.addEventListener('click',()=>{selectedDeckId=deck.id;renderDeckManagement();document.getElementById('deck-back-to-list').focus();});
+        deckList.appendChild(row);
+      }
+      return;
+    }
 
     // デッキがまだない場合
     if (
       !data.decks ||
-      data.decks.length === 0
+      !data.decks.some(deck=>deck.id===selectedDeckId)
     ) {
       deckList.innerHTML =
         `
@@ -2613,7 +2681,7 @@ async function loadDecks() {
     // デッキごとに表示
     // ====================================
 
-    data.decks.forEach(
+    data.decks.filter(deck=>deck.id===selectedDeckId).forEach(
       (deck) => {
 
         const deckBox =
@@ -2621,6 +2689,19 @@ async function loadDecks() {
             "div"
           );
 
+
+        const formats=createFormatChoices(deck.formats || []);
+        const formatSave=document.createElement('button');formatSave.textContent='対応フォーマットを保存';
+        formatSave.addEventListener('click',async()=>{
+          const selected=formats.selectedFormats();
+          if(!selected.length){alert('対応フォーマットを1つ以上選択してください。');return;}
+          formatSave.disabled=true;
+          try {
+            const response=await fetch('/api/decks/'+deck.id+'/formats',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({formats:selected})});
+            const result=await response.json();if(!response.ok)throw new Error(result.error);
+            await loadDecks();
+          }catch(error){alert(error.message);}finally{formatSave.disabled=false;}
+        });
 
         deckBox.style.padding =
           "15px";
@@ -2925,6 +3006,7 @@ editArea.appendChild(
 
 
         deckBox.appendChild(name);
+        deckBox.append(formats,formatSave);
         deckBox.appendChild(editArea);
         deckBox.appendChild(aliasText);
         deckBox.appendChild(aliasArea);
@@ -3052,7 +3134,7 @@ async function addDeck() {
 
           body:
             JSON.stringify({
-              name: name
+              name: name, formats: deckAddFormats.selectedFormats()
             })
         }
       );
@@ -3110,3 +3192,5 @@ deckNameInput.addEventListener(
     }
   }
 );
+
+if(new URLSearchParams(location.search).has("format")||new URLSearchParams(location.search).has("startDate")||new URLSearchParams(location.search).has("endDate"))menuEvents.click();

@@ -118,3 +118,23 @@ test('latest TCG matching rows and header share 32 unique real players even when
  assert.equal(elements.get('memo-list').children[31].children[0].textContent,'不戦勝');
  assert.equal(matching.participants.length,39); // original response was not mutated
 });
+
+test('all memo providers use event format; standalone provider fallback and saved outside choices remain usable',async()=>{
+ for(const [provider,eventFormat,providerFormat,expected] of [
+  ['nojigiku','original',null,['未選択','A','B（現在はこのフォーマットの候補外）']],
+  ['tcg_meister','original',null,['未選択','A','B（現在はこのフォーマットの候補外）']],
+  ['sugatool','original','advance',['未選択','A','B（現在はこのフォーマットの候補外）']],
+  ['sugatool',null,'advance',['未選択','B']],
+  ['nojigiku',null,null,['未選択','A','B']]
+ ]) {
+  const elements=new Map();
+  const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element()},fetch:async url=>({ok:true,json:async()=>url.includes('/api/decks')?{success:true,decks:[{id:1,name:'A',formats:['original']},{id:2,name:'B',formats:['advance']}]}:
+   {success:true,provider,event:eventFormat?{format:eventFormat}:null,format:providerFormat,latestRound:1,participants:[{dmpId:'1',participantKey:'id:1',internalParticipantId:'1',name:'Player',round:1,table:1,deckId:2,deckName:'B'}]}})});
+  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
+  await elements.get('memo-refresh').handlers.click();
+  const select=elements.get('memo-list').children[0].children.at(-1).children[0];
+  assert.deepEqual(Array.from(select.children,option=>option.textContent),expected);
+  assert.equal(select.value,'2');
+ }
+});

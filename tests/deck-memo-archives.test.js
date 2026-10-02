@@ -94,7 +94,7 @@ test('DMP-aware matching calls existing detail fetch, upserts same event key and
   });
   const res={status(){return this;},set(){},json(b){this.body=b;}};
   await routes.get('/api/deck-memo/matching')({body:{url:'https://nojigikucs.com/?admin=hattics',detailUrl:'https://www.dmp-ranking.com/event.asp?ShopID=3616&EventID=336&Seq=2'}},res);
-  assert.equal(dmpCalls,1);assert.deepEqual(linkedArgs,['3616','336','2','大会','2026-09-28']);
+  assert.equal(dmpCalls,1);assert.deepEqual(linkedArgs,['3616','336','2','大会','2026-09-28',null]);
   assert.equal(res.body.memoEventId,17);assert.equal(res.body.event.eventName,'大会');
   assert.ok(calls.some(sql=>sql.includes('INSERT INTO deck_memo_roster')));
   assert.ok(!calls.some(sql=>sql.includes('deck_memo_archive')));

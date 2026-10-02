@@ -86,7 +86,7 @@ function normalizeMemoMatching(matching) {
         const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
       }
       const cell = document.createElement('td');
-      const select = createDeckSelect(decks, {deckId:player.deckId, deckName:player.deckName, label:player.name + 'の使用デッキ'});
+      const select = createDeckSelect(decks, {format:current.event?.format || current.format, deckId:player.deckId, deckName:player.deckName, label:player.name + 'の使用デッキ'});
       selects.push(select);
       const saved = document.createElement('small'); saved.setAttribute('role', 'status');
       saved.textContent = select.unmatchedDeckName ? '保存済み：' + select.unmatchedDeckName + '（一覧を再取得してください）' : player.deckId === null ? '未登録' : '保存済み';
@@ -115,7 +115,7 @@ function normalizeMemoMatching(matching) {
     status.textContent = '最新の対戦表を取得中...';
     try {
       const [matching, decks] = await Promise.all([
-        getJson('/api/deck-memo/matching', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: input.value.trim(), detailUrl: dmpInput.value.trim()})}),
+        getJson('/api/deck-memo/matching', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: input.value.trim(), ...(dmpInput.value.trim() ? {detailUrl:dmpInput.value.trim()} : {})})}),
         getJson('/api/decks?sort=usage', {cache: 'no-store'})
       ]);
       const rawPlayers=Array.isArray(matching.participants)?matching.participants:[];

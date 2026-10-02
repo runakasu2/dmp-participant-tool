@@ -35,6 +35,7 @@ class Element {
   constructor(){this.children=[];this.handlers={};this.value='';}
   addEventListener(type,handler){this.handlers[type]=handler;}
   setAttribute(){}
+  replaceChildren(){this.children=[];}
   append(...nodes){this.children.push(...nodes);}
   appendChild(node){this.children.push(node);}
 }
@@ -49,6 +50,7 @@ test('successful manual save and reset immediately update aggregation without ex
     const body=JSON.parse(options.body);
     return {ok:!fail,json:async()=>fail?{error:'failed'}:{hasManualPrediction:body.mode==='manual',manualDeckId:body.mode==='manual'?2:null,manualDeckName:body.mode==='manual'?'B':null}};
   }});
+  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
   vm.runInContext(source.slice(source.indexOf('function createPredictionCell'),source.indexOf('console.log(')),context);
   const cell=context.createPredictionCell(people[0],[{id:1,name:'A'},{id:2,name:'B'}],{shopId:'s',eventId:'e',seq:'1'},()=>{updates++;summary=buildPredictionSummary(people);});
   cell.children[1].value='2';
