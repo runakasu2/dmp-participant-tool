@@ -27,6 +27,16 @@ test('deck formats: migration once, filtered catalog, create/edit validation, re
   }
   const all=await call('get','/api/decks',{}, {},{sort:'usage'});assert.deepEqual(all.decks.map(d=>d.usage_count),[3,1,0]);
   await call('get','/api/decks',{}, {},{format:'invalid'},400);
+  await call('put','/api/decks/:id',{name:'B'},{id:'1'},{},400);
+  assert.equal((await db.query('SELECT name FROM decks WHERE id=1')).rows[0].name,'A');
+  await db.exec(`CREATE FUNCTION fail_history_rename() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.deck_name='UnusedName' THEN RAISE EXCEPTION 'test conflict' USING ERRCODE='23505',TABLE='deck_history',CONSTRAINT='test_history_unique'; END IF; RETURN NEW; END $$;
+    CREATE TRIGGER test_rename_failure BEFORE UPDATE ON deck_history FOR EACH ROW EXECUTE FUNCTION fail_history_rename();`);
+  const failed=await call('put','/api/decks/:id',{name:'UnusedName'},{id:'1'},{},500);
+  assert.ok(!failed.error.includes('すでに登録'));
+  assert.equal((await db.query('SELECT name FROM decks WHERE id=1')).rows[0].name,'A');
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM deck_history WHERE deck_name='A'")).rows[0].n,2);
+  await db.exec('DROP TRIGGER test_rename_failure ON deck_history; DROP FUNCTION fail_history_rename();');
   await call('put','/api/decks/:id',{name:'Renamed'},{id:'1'});
   assert.deepEqual(await formats(1),['2block','advance']);
   await call('post','/api/decks/:id/merge',{targetDeckId:2},{id:'1'});

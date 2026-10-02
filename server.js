@@ -2319,143 +2319,34 @@ app.post(
 // 正式デッキ名を編集
 // ========================================
 
-app.put(
-  "/api/decks/:id",
-  async (req, res) => {
-    try {
-
-      const deckId =
-        Number(req.params.id);
-
-      const name =
-        String(
-          req.body.name || ""
-        ).trim();
-
-
-      if (
-        !deckId ||
-        !name
-      ) {
-        return res.status(400).json({
-          success: false,
-          error:
-            "デッキIDとデッキ名が必要です。"
-        });
-      }
-
-
-      // 対象デッキが存在するか確認
-      const deckResult =
-        await pool.query(
-          `
-            SELECT
-              id,
-              name
-            FROM decks
-            WHERE id = $1;
-          `,
-          [deckId]
-        );
-
-
-      if (
-        deckResult.rows.length === 0
-      ) {
-        return res.status(404).json({
-          success: false,
-          error:
-            "デッキが見つかりません。"
-        });
-      }
-
-
-      const oldName =
-        deckResult.rows[0].name;
-
-
-      // 正式名称を更新
-      const result =
-        await pool.query(
-          `
-            UPDATE decks
-
-            SET
-              name = $1,
-              updated_at =
-                CURRENT_TIMESTAMP
-
-            WHERE id = $2
-
-            RETURNING
-              id,
-              name;
-          `,
-          [
-            name,
-            deckId
-          ]
-        );
-
-
-      // --------------------------------
-      // 過去のdeck_historyも統一
-      // --------------------------------
-
-      await pool.query(
-        `
-          UPDATE deck_history
-
-          SET
-            deck_name = $1
-
-          WHERE
-            LOWER(deck_name) =
-              LOWER($2);
-        `,
-        [
-          name,
-          oldName
-        ]
-      );
-
-
-      res.json({
-        success: true,
-        oldName:
-          oldName,
-        deck:
-          result.rows[0]
-      });
-
-
-    } catch (error) {
-
-      if (error.code === "23505") {
-        return res.status(400).json({
-          success: false,
-          error:
-            "その正式デッキ名はすでに登録されています。"
-        });
-      }
-
-
-      console.error(
-        "デッキ名編集エラー:",
-        error
-      );
-
-
-      res.status(500).json({
-        success: false,
-        error:
-          "デッキ名を編集できませんでした。",
-        detail:
-          error.message
-      });
-    }
-  }
-);
+app.put("/api/decks/:id", async (req,res)=>{
+  const deckId=Number(req.params.id),name=String(req.body?.name || '').trim();
+  if(!Number.isSafeInteger(deckId)||deckId<=0||!name||name.length>100)
+    return res.status(400).json({success:false,error:'有効なデッキIDと100文字以内の名前が必要です。'});
+  let client,active=false,releaseError,stage='connect';
+  try {
+    client=await pool.connect();await client.query('BEGIN');active=true;
+    stage='lookup';
+    const current=await client.query('SELECT id,name FROM decks WHERE id=$1 FOR UPDATE',[deckId]);
+    if(!current.rows.length){await client.query('ROLLBACK');active=false;return res.status(404).json({success:false,error:'デッキが見つかりません。'});}
+    const duplicate=await client.query('SELECT id FROM decks WHERE name=$1 AND id<>$2',[name,deckId]);
+    if(duplicate.rows.length){await client.query('ROLLBACK');active=false;return res.status(400).json({success:false,error:'その正式デッキ名は別のデッキに登録されています。「すべて（所属を編集）」の一覧も確認してください。'});}
+    const oldName=current.rows[0].name;
+    stage='rename';
+    const result=await client.query('UPDATE decks SET name=$1,updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING id,name',[name,deckId]);
+    stage='history';
+    await client.query('UPDATE deck_history SET deck_name=$1 WHERE LOWER(deck_name)=LOWER($2)',[name,oldName]);
+    stage='commit';await client.query('COMMIT');active=false;
+    res.json({success:true,oldName,deck:result.rows[0]});
+  }catch(error){
+    if(active)try{await client.query('ROLLBACK');}catch(rollbackError){releaseError=rollbackError;}
+    console.error('[deck-rename] Failed',{stage,deckId,code:error.code,table:error.table,constraint:error.constraint});
+    const duplicate=error.code==='23505'&&error.table==='decks'&&error.constraint==='decks_name_key';
+    res.status(duplicate?400:500).json({success:false,error:duplicate
+      ?'その正式デッキ名は別のデッキに登録されています。「すべて（所属を編集）」の一覧も確認してください。'
+      :'デッキ名を変更できませんでした。変更は取り消しました。サーバーの [deck-rename] ログを確認してください。'});
+  }finally{client?.release(releaseError);}
+});
 
 // ========================================
 // デッキ統合（同じ接続で全処理を確定・取り消しする）
