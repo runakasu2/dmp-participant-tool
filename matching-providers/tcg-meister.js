@@ -90,6 +90,13 @@ function latestRound(html, tid) {
     .filter(n=>/^[1-9]\d*$/.test(n) && Number(n)<9999999).map(Number);
   return rounds.length ? Math.max(...rounds) : null;
 }
+function parseTableNumber(text) {
+  // Only called with the identified 卓番 cell, never with a whole row/page.
+  const normalized=text.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  const match=normalized.match(/\d+/);
+  const number=match ? Number(match[0]) : null;
+  return Number.isSafeInteger(number) && number>0 ? number : null;
+}
 function parseRound(html, tid, round) {
   const $ = cheerio.load(html), participants=[];
   let recognized=false;
@@ -105,7 +112,7 @@ function parseRound(html, tid, round) {
         columns={name,raw:texts.indexOf('No.'),table:texts.indexOf('卓番'),opponent:texts.indexOf('対戦相手のお名前')};
         recognized=true;return;
       }
-      if(!columns || texts.length<5) return;
+      if(!columns || texts.length<=Math.max(columns.name,columns.raw,columns.table,columns.opponent)) return;
       const handleName=texts[columns.name];
       if(!handleName || /^(?:bye(?:\s*[（(]不戦勝[）)])?|不戦勝)$/i.test(handleName)) return;
       const nameCell=cells.eq(columns.name);
@@ -113,7 +120,7 @@ function parseRound(html, tid, round) {
       const internalParticipantId=/VisitorLock\(\s*['"](\d+)['"]\s*,/i.exec(handler)?.[1] || null;
       const rawNo=columns.raw>=0 ? texts[columns.raw] || '' : '';
       const tableText=texts[columns.table] || '';
-      const tableNumber=/^[1-9]\d*$/.test(tableText) ? Number(tableText) : null;
+      const tableNumber=parseTableNumber(tableText);
       const bye=tableText.includes('不戦勝') || (texts[columns.opponent] || '').includes('不戦勝');
       // Fallback is scoped to this memo/tid and cannot be confused with a DMP ID.
       const participantKey=internalParticipantId ? 'id:'+internalParticipantId :

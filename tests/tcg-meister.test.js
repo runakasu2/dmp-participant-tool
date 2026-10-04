@@ -25,8 +25,10 @@ test('normal rounds exclude standings; rows retain internal/raw IDs without clai
   assert.equal(parsed.participants.length,2);assert.deepEqual(parsed.pages,[2]);
   assert.equal(parsed.participants[0].rawNo,'ガブロジー');assert.equal(parsed.participants[0].internalParticipantId,'42');
   assert.equal(parsed.participants[0].dmpId,null);
+  assert.deepEqual(parsed.participants.map(p=>p.tableNumber),[1,1]);
   const numeric=parseRound(fixture('round-number'),'8005807',5).participants[0];
   assert.equal(numeric.rawNo,'45190');assert.equal(numeric.name,'カッツヲ');assert.equal(numeric.dmpId,null);
+  assert.equal(numeric.tableNumber,2);
   const bye=parseRound(fixture('round-name-page2'),'5482242',5).participants[0];
   assert.equal(bye.bye,true);assert.equal(bye.table,null);assert.equal(bye.name,'旧HN');
 });
@@ -131,4 +133,41 @@ test('public table without optional No. column is recognized and uses internal I
  assert.equal(result.participants.length,2);
  assert.deepEqual(result.participants.map(p=>p.participantKey),['id:123','id:456']);
  assert.ok(result.participants.every(p=>p.rawNo===''&&p.dmpId===null&&p.table===1));
+});
+
+test('table numbers extract normalized digits only from the table cell',()=>{
+  for(const [text,expected] of [
+    ['12',12],['12〜',12],['12～',12],['12 〜',12],['12 ～',12],
+    ['12~',12],['12 ~',12],['１２〜',12],['123〜',123],
+    ['',null],['　',null],['〜',null],['BYE',null],['不戦勝',null],
+    ['0',null],['9007199254740992',null],
+  ]) {
+    // Other cells contain entry number 45190, participant ID 8 and score 9.
+    const html=fixture('round-number').replace('<td>2</td>',`<td>${text}</td>`);
+    const p=parseRound(html,'8005807',5).participants[0];
+    assert.equal(p.table,expected,text);assert.equal(p.tableNumber,expected,text);
+    assert.equal(p.participantKey,'id:8');assert.equal(p.dmpId,null);
+  }
+});
+
+test('5856470 three-column wave table retains both sides of each pairing',()=>{
+  const participants=parseRound(fixture('round-three-column-wave'),'5856470',1).participants;
+  assert.equal(participants.length,4);
+  assert.deepEqual(participants.map(p=>p.table),[1,1,2,2]);
+  assert.deepEqual(participants.map(p=>p.participantKey),['id:1','id:2','id:3','id:4']);
+  assert.ok(participants.every(p=>p.rawNo==='' && p.dmpId===null));
+  const bye=parseRound(fixture('round-three-column-wave').replace('1～','不戦勝'),'5856470',1).participants[0];
+  assert.equal(bye.table,null);assert.equal(bye.bye,true);
+});
+
+test('anonymous fetch sorts wave table numbers numerically and missing tables last',async()=>{
+  const f=fakeSource();
+  const result=await fetchTcgMatching(source,async(url,opts)=>{
+    if(new URL(url).pathname!=='/tourround.asp') return f.fetch(url,opts);
+    const tables=['12～','1〜','１１ ~','2 ~','10',''];
+    return new Response('<table><tr><td>卓番</td><td>あなたのお名前</td><td>対戦相手のお名前</td></tr>'+tables.map((table,i)=>
+      `<tr><td>${table}</td><td onclick="VisitorLock('${i+1}','Player')">Player ${i+1}</td><td>Opponent 999</td></tr>`).join('')+'</table>');
+  });
+  assert.equal(result.latestRound,5);
+  assert.deepEqual(result.participants.map(p=>p.tableNumber),[1,2,10,11,12,null]);
 });
