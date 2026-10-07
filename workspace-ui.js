@@ -8,7 +8,7 @@
   const pageNames = {
     participants: '参加表明', results: '大会結果', events: '大会一覧',
     'event-detail': '大会詳細', players: 'プレイヤー検索', 'player-detail': 'プレイヤー詳細',
-    decks: 'デッキ管理', 'deck-memo': 'デッキメモ'
+    rps: 'じゃんけんデータ', decks: 'デッキ管理', 'deck-memo': 'デッキメモ'
   };
   let currentPage;
   function closeMore(returnFocus = false) {
@@ -43,7 +43,7 @@
       if (active) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
     });
-    more.classList.toggle('has-active', ['decks', 'players'].includes(parent));
+    more.classList.toggle('has-active', ['decks', 'players', 'rps'].includes(parent));
     document.getElementById('current-page-label').textContent = pageNames[key] || '大会データ';
     if (currentPage && currentPage !== page) {
       closeMore();
@@ -118,7 +118,7 @@
     const update = () => {
       const text = status.textContent;
       status.dataset.tone = /失敗|エラー|できません|不正/.test(text) ? 'error'
-        : /保存しました|反映しました|更新しました/.test(text) ? 'success'
+        : /保存しました|反映しました|更新しました|記録しました/.test(text) ? 'success'
         : /取得中|保存中|読み込み中|処理中/.test(text) ? 'loading' : 'info';
     };
     new MutationObserver(update).observe(status, {childList: true, characterData: true, subtree: true});

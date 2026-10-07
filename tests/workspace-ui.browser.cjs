@@ -14,14 +14,20 @@ const memoPlayers=['「ッジ」','るなかす','りょけん','光月おでん
 const bodies=[];
 let failParticipants=false;
 let memoProvider='tcg_meister';
+let catalogSearchFixture=false,eventRequests=0;
+const catalogEvents=[['ドラスタ十月CS','2026-10-01'],['ドラスタ三ノ宮CS','2026-09-21'],['九月の別大会','2026-09-14'],['ドラスタ八月CS','2026-08-31']].map(([event_name,event_date],i)=>({...event,id:i+1,event_name,event_date}));
 function responseFor(url,request){
   const body=request.postDataJSON(); if(body)bodies.push({path:url.pathname,body});
-  if(url.pathname==='/api/participants')return {count:2,format:'original',decks,participants:players.map(p=>({...p,recentDecks:[{deckName:decks[0].name,eventDate:'2026-10-01',eventName:'過去の大会'}],prediction:{finalDeckName:decks[0].name,autoDeckName:decks[0].name,source:'auto',autoStatus:'ok',hasManualPrediction:false}}))};
-  if(url.pathname==='/api/event-deck-prediction')return {hasManualPrediction:true,manualDeckId:2,manualDeckName:decks[1].name};
+  if(url.pathname==='/api/participants')return {count:2,format:'original',decks,participants:players.map(p=>({...p,recentDecks:[1,2,3].map(i=>({deckName:decks[0].name,eventDate:'2026-09-'+(30-i),eventName:'過去の大会'})),prediction:{finalDeckName:decks[0].name,autoDeckName:decks[0].name,source:'auto',autoStatus:'ok',hasManualPrediction:false}}))};
+  if(url.pathname==='/api/event-deck-prediction')return {hasManualPrediction:body.mode!=='auto',manualDeckId:body.mode==='auto'?null:2,manualDeckName:body.mode==='auto'?null:decks[1].name};
   if(url.pathname==='/api/event-result-from-detail')return {year:2026,shopId:'shop123',eventId:'event456',held:'1',eventName:event.event_name,eventDate:'2026-10-07',count:2,format:'original',participants:players};
   if(url.pathname==='/api/deck-history')return request.method()==='GET'?{decks:[{dmp_id:'000123',deck_name:decks[0].name}]}:{normalizedDeckName:decks[1].name};
   if(url.pathname==='/api/decks')return {decks};
-  if(url.pathname==='/api/events')return {count:1,events:[event]};
+  if(url.pathname==='/api/events'){
+    eventRequests++;
+    const events=(catalogSearchFixture?catalogEvents:[event]).filter(e=>(!url.searchParams.get('startDate')||e.event_date>=url.searchParams.get('startDate'))&&(!url.searchParams.get('endDate')||e.event_date<=url.searchParams.get('endDate')));
+    return {count:events.length,events};
+  }
   if(url.pathname==='/api/event-results')return {count:2,participants:players.map(p=>({...p,deckName:decks[0].name}))};
   if(url.pathname==='/api/event-deck-summary')return {participantCount:64,registeredCount:2,unregisteredCount:62,registeredDeckCount:2,decks:[{deckName:decks[0].name,count:2,percentage:'3.1',players:players.map(p=>({dmpId:p.id,handleName:p.name}))}],unregisteredPlayers:[]};
   if(url.pathname==='/api/player-search')return {count:1,players:[{dmp_id:'000123',handle_name:players[0].name}]};
@@ -72,18 +78,44 @@ function responseFor(url,request){
       await page.evaluate(()=>window.scrollTo(0,0));
       await page.screenshot({path:path.join(output,`${width}-${name}.png`),fullPage:true});
     }
+    async function checkPie(selector,width){
+      const plot=page.locator(selector);
+      const layout=await plot.evaluate(node=>{
+        const svg=node.querySelector('svg'),legend=node.querySelector('ul');
+        const left=svg.getBoundingClientRect(),right=legend.getBoundingClientRect();
+        return {left:left.x,right:right.x,plotRight:left.right,plotWidth:left.width,plotHeight:left.height,legendWidth:right.width,legendScroll:legend.scrollWidth,legendRight:right.right,topDiff:Math.abs(left.top-right.top),viewBox:svg.getAttribute('viewBox')};
+      });
+      if(width<=720){assert.ok(layout.plotRight<=layout.right);assert.ok(layout.legendRight<=width);assert.ok(layout.topDiff<2);assert.equal(layout.viewBox,'0 0 240 240');assert.ok(Math.abs(layout.plotWidth/layout.legendWidth-1.5)<.02);assert.ok(Math.abs(layout.plotWidth-layout.plotHeight)<1);assert.ok(layout.legendScroll<=layout.legendWidth+1);assert.ok(layout.plotWidth>=165);console.log('pie widths',width,selector,Math.round(layout.plotWidth),Math.round(layout.legendWidth));}
+      else assert.equal(layout.viewBox,'-140 -20 520 280');
+      await plot.screenshot({path:path.join(output,`${width}-${selector.slice(1)}-horizontal.png`)});
+    }
     for(const width of [375,390,430,768,1440]){
       await page.setViewportSize({width,height:900});
       await page.goto(`http://127.0.0.1:${server.address().port}`);
       await check('empty',width);
+      assert.equal(await page.locator('#event-info').isVisible(),width>720);
+      assert.equal(await page.locator('#shop-id').count(),1);
       await page.locator('#event-url').fill('https://www.dmp-ranking.com/event.asp?ShopID=shop123&EventID=event456&Seq=1');
       await page.locator('#get-event').click();
       await page.locator('#participant-list tr').first().waitFor();
       await page.locator('#participant-list select').first().selectOption('2');
       await page.locator('#participant-list button').filter({hasText:'手動で保存'}).first().click();
       await page.locator('#participant-list [role="status"]').first().filter({hasText:'保存しました'}).waitFor();
+      console.log('participant row heights',width,await page.locator('#participant-list tr').evaluateAll(rows=>rows.map(row=>Math.round(row.getBoundingClientRect().height))));
       await check('participants',width);
-      await page.locator('#prediction-view-pie').click();await check('prediction-pie',width);await page.locator('#prediction-view-list').click();
+      if(width<=720){
+        const density=await page.locator('#participant-list tr').first().evaluate(row=>{
+          const select=row.querySelector('select').getBoundingClientRect(),buttons=[...row.querySelectorAll('.prediction-cell button')].map(b=>b.getBoundingClientRect());
+          return {height:row.getBoundingClientRect().height,selectHeight:select.height,buttons:buttons.map(b=>b.height),sameLine:Math.abs(buttons[0].top-select.top)<2};
+        });
+        assert.ok(density.height<450,JSON.stringify(density));assert.ok(density.sameLine);
+        assert.ok(density.selectHeight>=44 && density.buttons.every(h=>h>=44));
+        await page.locator('#participant-list tr').first().screenshot({path:path.join(output,`${width}-compact-participant.png`)});
+      }
+
+      await page.locator('#prediction-view-pie').click();await check('prediction-pie',width);await checkPie('#prediction-summary-pie',width);await page.locator('#prediction-view-list').click();
+      await page.locator('#participant-list button').filter({hasText:'自動予想に戻す'}).first().click();
+      await page.locator('#participant-list [role="status"]').first().filter({hasText:'自動予想に戻しました'}).waitFor();
       await page.locator('#participant-list .player-detail-link').first().click();
       await page.locator('#page-player-detail').waitFor({state:'visible'});
       await check('player-detail',width);
@@ -96,9 +128,10 @@ function responseFor(url,request){
       await page.locator('#result-list button').first().filter({hasText:'保存済み'}).waitFor();
       await check('results',width);
       await go('events');await page.locator('.event-card').waitFor();await check('events',width);
-      await page.locator('#show-deck-period').click();await page.locator('#deck-period-rows tr').first().waitFor();await check('period',width);
+      await page.locator('.event-analysis-tools summary').click();
+      await page.locator('#show-deck-period').click();await page.locator('#deck-period-rows tr').first().waitFor();await check('period',width);await page.locator('#period-pie').click();await checkPie('#deck-period-pie',width);await page.locator('#period-list').click();
       await page.locator('#show-deck-trends').click();await page.locator('#deck-trend-chart svg').waitFor();await check('trends',width);
-      await page.locator('.event-card').click();await page.locator('#event-results-list tr').first().waitFor();await check('event-detail',width);
+      await page.locator('.event-card').click();await page.locator('#event-results-list tr').first().waitFor();await check('event-detail',width);await page.locator('#deck-view-pie').click();await checkPie('#deck-summary-pie',width);await page.locator('#deck-view-list').click();
       await go('players');await page.locator('#player-search-input').fill('000123');await page.locator('#player-search-button').click();await page.locator('#player-search-list tr').waitFor();await check('players',width);
       await page.locator('#player-search-list tr').focus();await page.keyboard.press('Enter');await page.locator('#page-player-detail').waitFor({state:'visible'});
       await go('decks');await page.locator('.deck-management-row').first().waitFor();await check('decks',width);
@@ -147,6 +180,61 @@ function responseFor(url,request){
       assert.equal(await page.locator('#memo-list tr').first().locator('td').count(),4);
       await page.locator('.memo-live-table').screenshot({path:path.join(output,`${width}-compact-four-columns.png`)});
     }
+    catalogSearchFixture=true;
+    for(const width of [375,390,430,768,1440]){
+      await page.setViewportSize({width,height:900});await go('events');
+      const names=()=>page.locator('.event-card-name').allTextContents();
+      const expectNames=async expected=>{await page.waitForFunction(expected=>JSON.stringify([...document.querySelectorAll('.event-card-name')].map(e=>e.textContent))===JSON.stringify(expected),expected);assert.deepEqual(await names(),expected);};
+      const allNames=catalogEvents.map(e=>e.event_name);
+      await expectNames(allNames);
+      assert.equal(await page.locator('#reload-events').isVisible(),false);
+      let calls=eventRequests;
+      await page.locator('#events-name-search').fill('ドラスタ');await expectNames([allNames[0],allNames[1],allNames[3]]);
+      await page.locator('#enter-event-delete').click();await page.locator('#select-all-events').click();
+      assert.match(await page.locator('#event-selection-count').textContent(),/3件/);
+      await page.locator('#events-name-search').fill('九月');await expectNames([allNames[2]]);
+      assert.match(await page.locator('#event-selection-count').textContent(),/0件/);
+      await page.locator('#events-name-search').fill('該当なし');await expectNames([]);
+      await page.locator('#events-name-search').fill('');await expectNames(allNames);
+      assert.equal(eventRequests,calls,'typing must not fetch');
+      const apply=async(start,end,expected)=>{
+        await page.locator('#events-start-date').fill(start);await page.locator('#events-end-date').fill(end);
+        await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/events'),page.locator('#event-filter-form button[type=submit]').click()]);
+        await expectNames(expected);
+      };
+      await apply('2026-09-01','',allNames.slice(0,3));
+      await apply('','2026-09-30',allNames.slice(1));
+      await apply('2026-09-01','2026-09-30',allNames.slice(1,3));
+      calls=eventRequests;
+      await page.locator('#events-name-search').fill('ドラスタ');await expectNames([allNames[1]]);assert.equal(eventRequests,calls);
+      await check('event-search',width);
+      if(width<=720){
+        const layout=await page.locator('#event-filter-form').evaluate(form=>{const start=form.querySelector('#events-start-date').getBoundingClientRect(),end=form.querySelector('#events-end-date').getBoundingClientRect();return {height:form.getBoundingClientRect().height,startWidth:start.width,endWidth:end.width,sameRow:Math.abs(start.top-end.top)<1};});
+        assert.ok(layout.height<260,JSON.stringify(layout));assert.ok(layout.sameRow&&layout.startWidth>120&&layout.endWidth>120);
+        console.log('filter layout',width,layout);
+      }
+      await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/events'),page.locator('#event-period-reset').click()]);
+      await expectNames(allNames);
+      for(const id of ['events-name-search','events-start-date','events-end-date'])assert.equal(await page.locator('#'+id).inputValue(),'');
+    }
+    // Long legends and artwork exercise the shared component rather than a page-specific copy.
+    await page.route('https://ui-fixture.invalid/**',route=>route.fulfill({contentType:'image/png',body:fs.readFileSync(path.join(root,'favicon.png'))}));
+    await page.setViewportSize({width:375,height:900});await go('participants');
+    await page.locator('#prediction-view-pie').click();
+    await page.evaluate(()=>{
+      const items=Array.from({length:8},(_,i)=>({deckName:i===0?'クローシスモウジャキングダム':'デッキ'+(i+1),count:2,percentage:'10.0',image_url:'https://ui-fixture.invalid/card.png'}));
+      items.push({deckName:'予想不明',count:4,percentage:'20.0',unknown:true});
+      renderDeckPieChart(document.getElementById('prediction-summary-pie'),items,{total:20});
+    });
+    await checkPie('#prediction-summary-pie',375);
+    await page.setViewportSize({width:430,height:900});await checkPie('#prediction-summary-pie',430);
+    const beforeResize=await page.locator('#prediction-summary-pie ul').textContent();
+    await page.setViewportSize({width:1440,height:900});
+    await page.waitForFunction(()=>document.querySelector('#prediction-summary-pie > svg').getAttribute('viewBox')==='-140 -20 520 280');
+    await page.setViewportSize({width:390,height:900});
+    await page.waitForFunction(()=>document.querySelector('#prediction-summary-pie > svg').getAttribute('viewBox')==='0 0 240 240');
+    await checkPie('#prediction-summary-pie',390);
+    assert.equal(await page.locator('#prediction-summary-pie ul').textContent(),beforeResize);
     assert.deepEqual(errors,[]);
     console.log('No page errors; API payloads preserved. Screenshots: '+output);
   } finally {await browser?.close();await new Promise(resolve=>server.close(resolve));}

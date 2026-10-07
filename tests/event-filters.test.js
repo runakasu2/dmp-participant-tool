@@ -19,3 +19,16 @@ test('SQL binds filters and restricts events and BEST4 to selected events',()=>{
  assert.match(q.sql,/JOIN selected_events ev/);assert.deepEqual(filteredEventCatalog().params,[]);
  assert.equal(filteredEventCatalog({format:'invalid'}).params[0],'original');
 });
+
+test('local name search supports Japanese partial matches, empty input and preserves order/data',()=>{
+ const {filterEventsByName}=require('../event-filters');
+ const events=[{id:3,event_name:'ドラスタ三ノ宮CS'},{id:2,event_name:'別の大会'},{id:1,event_name:'ドラスタ大阪ＣＳ'},{id:4,event_name:null}];
+ const before=JSON.stringify(events);
+ assert.deepEqual(filterEventsByName(events,'ドラスタ').map(e=>e.id),[3,1]);
+ assert.deepEqual(filterEventsByName(events,' 大阪cs ').map(e=>e.id),[1]);
+ assert.deepEqual(filterEventsByName(events,'該当なし'),[]);
+ assert.deepEqual(filterEventsByName(events,''),events);
+ assert.deepEqual(filterEventsByName(events,'　'),events);
+ assert.equal(filterEventsByName(events,'ドラスタ')[0],events[0]);
+ assert.equal(JSON.stringify(events),before);
+});

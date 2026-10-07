@@ -26,7 +26,7 @@
 <button id="menu-deck-memo" class="menu-button" type="button" aria-controls="page-deck-memo"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-9M16 3l5 5-10 10-5 1 1-5z"/></svg><span class="nav-label-desktop">デッキメモ</span><span class="nav-label-mobile">メモ</span></button>
       <button id="menu-more" class="menu-button" type="button" aria-expanded="false" aria-controls="menu-extra"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>その他</span></button>
       <div id="menu-extra" class="menu-extra">
-<button id="menu-players" class="menu-button" type="button" aria-controls="page-players"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="9" r="5"/><path d="m14 13 7 8M4 21a6 6 0 0 1 8-5"/></svg><span>プレイヤー</span></button><button id="menu-decks" class="menu-button" type="button" aria-controls="page-decks"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="13" height="17" rx="2"/><path d="M4 7H3v14a2 2 0 0 0 2 2h11M11 8h5m-5 4h5"/></svg><span>デッキ管理</span></button>
+<button id="menu-players" class="menu-button" type="button" aria-controls="page-players"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="9" r="5"/><path d="m14 13 7 8M4 21a6 6 0 0 1 8-5"/></svg><span>プレイヤー</span></button><button id="menu-rps" class="menu-button" type="button" aria-controls="page-rps"><span class="nav-icon" aria-hidden="true">✌️</span><span>じゃんけんデータ</span></button><button id="menu-decks" class="menu-button" type="button" aria-controls="page-decks"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="13" height="17" rx="2"/><path d="M4 7H3v14a2 2 0 0 0 2 2h11M11 8h5m-5 4h5"/></svg><span>デッキ管理</span></button>
       </div>
     </nav>
     <div class="sidebar-note"><strong>DUEL MASTERS</strong><span>大会データを、次の一手へ。</span></div>
@@ -319,7 +319,7 @@
 
         </div>
 
-        <button id="reload-events">
+        <button id="reload-events" hidden>
           更新
         </button>
 
@@ -332,14 +332,18 @@
         <button type="button" data-format="2block" aria-pressed="false">2ブロック</button>
       </div>
       <form id="event-filter-form" class="event-period">
+        <label class="event-name-field">大会名<input id="events-name-search" type="search" placeholder="大会名で検索" autocomplete="off"></label>
         <label>開始日 <input id="events-start-date" type="date"></label>
         <label>終了日 <input id="events-end-date" type="date"></label>
-        <button type="submit">検索</button><button type="button" id="event-period-reset">期間をリセット</button>
-        <button type="button" id="show-deck-period">期間母数を見る</button>
-        <button type="button" id="show-deck-trends">母数推移を見る</button>
+        <button type="submit">適用</button><button type="button" id="event-period-reset">リセット</button>
       </form>
       <p id="event-filter-error" role="status"></p>
-      <p class="page-description">大会詳細・大会名から形式を判定できない大会は、フォーマット別一覧には表示されません。</p>
+      <details class="event-analysis-tools"><summary>期間の集計・表示について</summary>
+      <p class="hint">母数・推移の集計は、大会名検索に関わらず指定した期間とフォーマット全体が対象です。</p>
+        <button type="button" id="show-deck-period">期間母数を見る</button>
+        <button type="button" id="show-deck-trends">母数推移を見る</button>
+      <p class="hint">大会詳細・大会名から形式を判定できない大会は、フォーマット別一覧には表示されません。</p>
+      </details>
       <section id="deck-period-summary" hidden>
         <div class="analysis-panel-header">
           <h2>期間母数</h2>
@@ -585,32 +589,19 @@
   </div>
 
 
-  <section>
-
-    <h2>
-      使用デッキ集計
-    </h2>
-
-    <div class="table-scroll">
-
-      <table>
-
-        <thead>
-          <tr>
-            <th>デッキ名</th>
-            <th>使用回数</th>
-          </tr>
-        </thead>
-
-        <tbody id="player-deck-summary">
-        </tbody>
-
-      </table>
-
-    </div>
-
+  <section class="player-insights">
+    <h2>直近5回の使用デッキ</h2>
+    <ul id="player-recent-decks" class="player-compact-list"></ul>
   </section>
-
+  <section class="player-insights">
+    <h2>使用回数 TOP3</h2>
+    <ol id="player-deck-summary" class="player-compact-list"></ol>
+  </section>
+  <section class="player-insights">
+    <div class="rps-heading"><h2>じゃんけん傾向</h2><span id="player-rps-total"></span></div>
+    <p id="player-rps-empty" hidden>じゃんけんデータなし</p>
+    <div id="player-rps-stats" class="rps-stats"></div>
+  </section>
 
   <section>
 
@@ -644,6 +635,21 @@
   </section>
 
 </div>
+<div id="page-rps" class="page" style="display: none;">
+  <div class="page-title-row"><div><h2>じゃんけんデータ</h2><p class="page-description">相手が出した手を記録して、傾向を確認できます。</p></div></div>
+  <form id="rps-form" class="form-panel">
+    <label for="rps-player-name">プレイヤー名 <span class="hint">必須</span></label>
+    <div class="rps-search-row"><input id="rps-player-name" required maxlength="100" autocomplete="off" placeholder="プレイヤー名 / DMP ID" aria-describedby="rps-player-hint"><button id="rps-search" type="button">候補を検索</button></div>
+    <p id="rps-player-hint" class="hint">同名の相手はDMP ID・記録先番号で区別して選んでください。</p>
+    <div id="rps-candidates" class="rps-candidates" aria-label="プレイヤー候補"></div>
+    <p id="rps-selected" role="status">プレイヤーを検索して選択してください。</p>
+    <label for="rps-hand">じゃんけんの手 <span class="hint">必須</span></label>
+    <select id="rps-hand" required><option value="">選択してください</option><option value="rock">👊 グー</option><option value="scissors">✌️ チョキ</option><option value="paper">🖐️ パー</option></select>
+    <div class="rps-actions"><button id="rps-save" type="submit">記録する</button><button id="rps-view-player" type="button" hidden>この相手の傾向を見る</button></div>
+    <p id="rps-status" role="status"></p>
+  </form>
+</div>
+
 <!-- ============================== -->
 <!-- デッキ管理ページ -->
 <!-- ============================== -->
@@ -773,6 +779,7 @@
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>
+  <script src="rps-ui.js"></script>
   <script src="workspace-ui.js"></script>
 
 </body>

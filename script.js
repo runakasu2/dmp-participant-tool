@@ -160,6 +160,7 @@ const pagePlayerDetail =
 // ========================================
 
 function hideAllPages() {
+  document.getElementById("page-rps").style.display = "none";
   document.getElementById("page-deck-memo").style.display = "none";
 
   pageParticipants.style.display =
@@ -190,6 +191,7 @@ function hideAllPages() {
 // ========================================
 
 function clearActiveMenus() {
+  document.getElementById("menu-rps").classList.remove("active");
   document.getElementById("menu-deck-memo").classList.remove("active");
 
   menuParticipants.classList.remove(
@@ -1254,6 +1256,8 @@ function initializeAnalysisCloseButtons(){
 }
 initializeAnalysisCloseButtons();
 let eventFilters=parseEventFilters({});
+let loadedEvents=null;
+const eventNameSearch=document.getElementById('events-name-search');
 function readEventAnalysisFilters(){return parseEventFilters({format:eventFilters.format,
  startDate:document.getElementById('events-start-date').value,endDate:document.getElementById('events-end-date').value});}
 const deckTrendControls=createDeckTrendControls(readEventAnalysisFilters);
@@ -1272,6 +1276,7 @@ function applyEventFilters(format=eventFilters.format,reset=false){
   const next=parseEventFilters({format,startDate:reset?'':document.getElementById('events-start-date').value,endDate:reset?'':document.getElementById('events-end-date').value});
   const url=new URL(location.href);for(const key of ['format','startDate','endDate'])url.searchParams.delete(key);
   new URLSearchParams(eventFilterQuery(next)).forEach((value,key)=>url.searchParams.set(key,value));
+  if(reset)eventNameSearch.value='';
   history.pushState(null,'',url);restoreEventFilters();void loadEvents();
  }catch(error){filterError.textContent=error.message;}
 }
@@ -1282,11 +1287,27 @@ document.querySelectorAll('[data-format]').forEach(button=>button.addEventListen
 window.addEventListener('popstate',()=>{if(eventResetControls.busy)return;restoreEventFilters();menuEvents.click();});
 const eventResetControls = createEventResetControls(afterReset => loadEvents(afterReset));
 let eventsLoadVersion = 0;
+function renderLoadedEvents(){
+  if(loadedEvents===null)return;
+  const list=document.getElementById('event-list');
+  const visible=filterEventsByName(loadedEvents,eventNameSearch.value);
+  // Rebuild the deletion controller from visible rows so hidden matches cannot be selected.
+  eventResetControls.beginLoad();
+  list.replaceChildren();
+  document.getElementById('event-count').textContent=eventNameSearch.value.trim()
+    ? `表示：${visible.length}件 / 取得済み：${loadedEvents.length}件`
+    : `保存大会数：${visible.length}件`;
+  if(!visible.length)list.textContent='条件に一致する大会がありません。';
+  for(const event of visible)list.appendChild(createEventCard(event,eventResetControls,openEventDetail));
+  eventResetControls.endLoad();
+}
+eventNameSearch.addEventListener('input',()=>{if(!eventResetControls.busy)renderLoadedEvents();});
 async function loadEvents(afterReset = false) {
   deckTrendControls.clear();
   deckPeriodControls.clear();
   if (eventResetControls.busy && !afterReset) return;
   const version = ++eventsLoadVersion;
+  loadedEvents=null;
   eventResetControls.beginLoad();
 
   const list =
@@ -1325,29 +1346,8 @@ async function loadEvents(afterReset = false) {
     }
 
 
-    list.innerHTML =
-      "";
-
-
-    count.textContent =
-      "保存大会数：" +
-      data.count +
-      "件";
-
-
-    if (
-      !data.events ||
-      data.events.length === 0
-    ) {
-
-      list.textContent = '条件に一致する大会がありません。';
-
-      return;
-    }
-
-
-    data.events.forEach(event => list.appendChild(createEventCard(event, eventResetControls, openEventDetail)));
-
+    loadedEvents=data.events || [];
+    renderLoadedEvents();
 
   } catch (error) {
     if (version !== eventsLoadVersion) return;
@@ -2148,7 +2148,7 @@ async function searchPlayers() {
 
     const response =
       await fetch(
-        "/api/player-search?q=" +
+        "/api/player-search?includeRpsGuests=1&q=" +
         encodeURIComponent(query)
       );
 
@@ -2217,7 +2217,7 @@ async function searchPlayers() {
           );
 
         idCell.textContent =
-          player.dmp_id;
+          player.dmp_id || `DMP ID未登録 #${player.guest_id}`;
 
 
         const nameCell =
@@ -2243,7 +2243,7 @@ async function searchPlayers() {
           () => {
 
             openPlayerDetail(
-              player.dmp_id
+              player.dmp_id, player.guest_id
             );
           }
         );
@@ -2314,15 +2314,15 @@ playerSearchInput.addEventListener(
 // ========================================
 
 async function openPlayerDetail(
-  dmpId
+  dmpId, guestId
 ) {
 
   try {
 
     const response =
       await fetch(
-        "/api/player-detail?dmpId=" +
-        encodeURIComponent(dmpId)
+        guestId ? "/api/rps/guests/" + encodeURIComponent(guestId)
+          : "/api/player-detail?dmpId=" + encodeURIComponent(dmpId)
       );
 
 
@@ -2368,83 +2368,15 @@ async function openPlayerDetail(
     document.getElementById(
       "player-detail-id"
     ).textContent =
-      "DMP ID：" +
-      data.player.dmpId;
+      data.player.dmpId ? "DMP ID：" + data.player.dmpId
+        : "DMP ID未登録・記録先 #" + data.player.guestId;
 
 
     // --------------------------
     // 使用デッキ集計
     // --------------------------
 
-    const deckList =
-      document.getElementById(
-        "player-deck-summary"
-      );
-
-
-    deckList.innerHTML =
-      "";
-
-
-    if (
-      !data.deckSummary ||
-      data.deckSummary.length === 0
-    ) {
-
-      deckList.innerHTML =
-        `
-          <tr>
-            <td colspan="2">
-              使用デッキの記録がありません。
-            </td>
-          </tr>
-        `;
-
-    } else {
-
-      data.deckSummary.forEach(
-        (deck) => {
-
-          const row =
-            document.createElement(
-              "tr"
-            );
-
-
-          const deckCell =
-            document.createElement(
-              "td"
-            );
-
-          deckCell.textContent =
-            deck.deckName;
-
-
-          const countCell =
-            document.createElement(
-              "td"
-            );
-
-          countCell.textContent =
-            deck.count + "回";
-
-
-          row.appendChild(
-            deckCell
-          );
-
-          row.appendChild(
-            countCell
-          );
-
-
-          deckList.appendChild(
-            row
-          );
-        }
-      );
-    }
-
+    renderPlayerInsights(data);
 
     // --------------------------
     // 大会履歴

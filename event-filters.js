@@ -10,4 +10,10 @@ function parseEventFilters(query={}){
  return {format,...dates};
 }
 function eventFilterQuery(filters){const q=new URLSearchParams({format:filters.format});for(const key of ['startDate','endDate'])if(filters[key])q.set(key,filters[key]);return q.toString();}
-if(typeof module!=='undefined')module.exports={parseEventFilters,eventFilterQuery};
+// Browser-side filtering only; keep server date/format queries unchanged.
+function filterEventsByName(events,query=''){
+ const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('ja').trim();
+ const name=normalize(query);
+ return events.filter(event=>!name||normalize(event.event_name).includes(name));
+}
+if(typeof module!=='undefined')module.exports={parseEventFilters,eventFilterQuery,filterEventsByName};

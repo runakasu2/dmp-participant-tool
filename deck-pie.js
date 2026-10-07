@@ -1,4 +1,12 @@
 let deckPieInstance=0;
+// Keep the full-size circle on phones without changing sectors, totals or desktop labels.
+const deckPiePhone = typeof window !== 'undefined' ? window.matchMedia('(max-width: 720px)') : null;
+function fitDeckPieViewport(svg) {
+ if(deckPiePhone)svg.setAttribute('viewBox',deckPiePhone.matches ? '0 0 240 240' : svg.getAttribute('data-desktop-viewbox'));
+}
+if(deckPiePhone)deckPiePhone.addEventListener('change',()=>{
+ document.querySelectorAll('.deck-pie > svg[data-desktop-viewbox]').forEach(fitDeckPieViewport);
+});
 function eventSummaryItems(data){
  return [...(data.decks||[]),{deckName:'未登録',count:data.unregisteredCount||0,
  percentage:data.participantCount>0?((data.unregisteredCount||0)/data.participantCount*100).toFixed(1):'0.0',unknown:true}];
@@ -85,6 +93,8 @@ function renderDeckPieChart(container,items,options={}){
    });
   }
  }
+ svg.setAttribute('data-desktop-viewbox',outerLabels.length<=12 ? '-140 -20 520 280' : '0 0 240 240');
+ fitDeckPieViewport(svg);
  container.appendChild(svg);container.appendChild(legend);
 }
 function setDeckSummaryView(mode,prefix="deck"){

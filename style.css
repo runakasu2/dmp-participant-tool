@@ -557,3 +557,99 @@ dialog::backdrop { background: #13233988; }
     display: block; width: 100%; text-align: left; font-size: .75rem; color: var(--danger); margin-top: 4px;
   }
 }
+
+/* Phone information density: retain controls and the shared visual language. */
+@media (max-width: 720px) {
+  #page-participants #event-info { display: none; }
+
+  #prediction-summary-table th, #prediction-summary-table td,
+  #deck-summary-table > table > thead th, #deck-summary-list > tr > td,
+  #deck-period-list th, #deck-period-rows > tr > td { padding-block: 6px; }
+
+  /* All three deck distribution views share this layout. */
+  .deck-pie { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 10px; align-items: start; }
+  .deck-pie > svg, .deck-pie > svg.deck-pie-labeled { width: 100%; max-width: 100%; height: auto; aspect-ratio: 1; margin: 0; }
+  .deck-pie > p { grid-column: 1/-1; }
+  .deck-pie-legend { font-size: .75rem; }
+  .deck-pie-legend li { margin: 0 0 5px; line-height: 1.45; }
+  .deck-pie-swatch { width: 10px; height: 14px; margin-right: 4px; border-radius: 2px; }
+
+  /* Only the participant roster has prediction/history editing controls. */
+  #participant-list { gap: 10px; }
+  #participant-list > tr > td { padding: 6px 10px; }
+  #participant-list > tr > td.is-player-name { padding: 4px 10px 0; border: 0; }
+  #participant-list > tr > td.is-player-name::before { display: none; }
+  #participant-list .player-detail-link { min-height: 44px; font-size: .9375rem; line-height: 1.5; }
+  #participant-list > tr > td:first-child { padding-top: 0; padding-bottom: 6px; border: 0; font-size: .75rem; color: var(--muted); }
+  #participant-list > tr > td:first-child::before { content: 'ID: '; display: inline; margin: 0; font-size: inherit; }
+  #participant-list > tr > td:nth-child(3)::before { content: '直近の使用デッキ'; margin-bottom: 3px; }
+  #participant-list .recent-decks li { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; padding: 2px 0; border: 0; border-radius: 0; background: transparent; line-height: 1.5; font-size: .8125rem; }
+  #participant-list .recent-decks li + li { margin-top: 0; }
+  #participant-list .recent-decks small { margin: 0; white-space: nowrap; font-size: .75rem; }
+  #participants #participant-list .prediction-cell { display: grid; grid-template-columns: minmax(0,1fr) 60px; gap: 6px 8px; padding: 8px 10px; }
+  #participant-list .prediction-cell::before { display: none; }
+  #participant-list .prediction-cell > div { grid-column: 1/-1; border: 0; padding: 0; font-size: .8125rem; line-height: 1.5; }
+  #participant-list .prediction-cell > div::before { content: '予想: '; display: inline; margin: 0; font-size: inherit; font-weight: 400; }
+  #participant-list .prediction-cell select { grid-column: 1; width: 100%; margin: 0; min-height: 44px; padding: 8px; }
+  #participant-list .prediction-cell button:first-of-type { grid-column: 2; width: 60px; margin: 0; min-height: 44px; padding: 8px; font-size: 0; }
+  #participant-list .prediction-cell button:first-of-type::after { content: '保存'; font-size: .8125rem; }
+  #participant-list .prediction-cell button:last-of-type { grid-column: 1/-1; justify-self: end; width: auto; min-height: 44px; margin: -2px 0 0; padding: 8px 0 8px 12px; background: transparent; border-color: transparent; color: var(--accent-hover); font-size: .75rem; }
+  #participant-list .prediction-cell > small { grid-column: 1/-1; margin: 0; font-size: .75rem; }
+  #participant-list .prediction-cell > small:empty { display: none; }
+}
+
+/* Tournament catalogue filters: local to this page. */
+#page-events .page-title-row { margin-bottom: 12px; }
+#event-filter-form { display: grid; grid-template-columns: minmax(180px,2fr) repeat(2,minmax(145px,1fr)) auto auto; align-items: end; gap: 10px; padding: 14px 16px; margin: 12px 0 8px; }
+#event-filter-form label { min-width: 0; font-size: .8125rem; }
+#event-filter-form input { margin-top: 4px; min-height: 44px; }
+#event-filter-form button { min-height: 44px; padding: 10px 14px; }
+#event-period-reset { background: transparent; border-color: transparent; color: var(--muted); }
+.event-analysis-tools { margin: 4px 0 12px; font-size: .8125rem; color: var(--muted); }
+.event-analysis-tools summary { width: fit-content; }
+.event-analysis-tools button { margin: 0 8px 8px 0; }
+#event-filter-error:empty { display: none; }
+#page-events #events { margin-top: 12px; }
+@media (min-width: 721px) and (max-width: 1200px) {
+  #event-filter-form { grid-template-columns: repeat(2,minmax(0,1fr)) auto auto; }
+  #event-filter-form .event-name-field { grid-column: 1/-1; }
+}
+@media (max-width: 720px) {
+  #event-filter-form { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px 10px; padding: 12px; margin-block: 10px 4px; }
+  #event-filter-form .event-name-field { grid-column: 1/-1; }
+  #event-filter-form input { width: 100%; min-width: 0; padding: 10px 8px; }
+  #event-filter-form button { width: auto; min-height: 44px; justify-self: start; padding: 9px 22px; }
+  #event-filter-form #event-period-reset { justify-self: end; padding-inline: 10px; }
+  #page-events #event-format-buttons { margin: 12px 0; }
+}
+
+/* Player insights and RPS only: compact data rows, with existing design tokens. */
+#page-player-detail .player-insights { padding: 16px; margin: 16px 0; }
+.player-insights h2 { margin: 0 0 8px; }
+.player-compact-list { list-style: none; padding: 0; margin: 0; }
+.player-compact-list li { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .875rem; }
+.player-compact-list li:last-child { border-bottom: 0; }
+.player-compact-list li > :first-child { overflow-wrap: anywhere; font-weight: 600; }
+.player-compact-list li > :last-child { color: var(--muted); font-size: .8125rem; white-space: nowrap; }
+.rps-heading { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; }
+#player-rps-total { color: var(--muted); font-size: .8125rem; }
+.rps-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.rps-stats > div { display: grid; text-align: center; padding: 8px 4px; background: var(--surface-muted); border-radius: var(--control-radius); font-size: .875rem; }
+.rps-stats strong { font-size: 1.125rem; color: var(--accent-hover); }
+#rps-form { max-width: 640px; }
+.rps-search-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.rps-search-row input { flex: 1; }
+.rps-search-row button { flex-shrink: 0; }
+.rps-candidates { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; }
+.rps-candidates button { text-align: left; justify-content: flex-start; overflow-wrap: anywhere; }
+#rps-player-hint { margin: 8px 0; }
+#rps-selected { overflow-wrap: anywhere; }
+.rps-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+#rps-save { background: var(--accent); color: white; border-color: var(--accent); }
+#rps-save:hover:not(:disabled) { background: var(--accent-hover); }
+@media (max-width: 720px) {
+  #page-player-detail .player-insights { padding: 12px; margin: 12px 0; }
+  #rps-form { padding: 16px; }
+  #page-rps .rps-search-row { flex-direction: row; }
+  .rps-search-row button { padding-inline: 10px; }
+}

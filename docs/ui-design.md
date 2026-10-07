@@ -68,3 +68,38 @@ Limitations: browser automation uses desktop Chromium, not physical iOS/Android 
 Only `.memo-live-table` at 720px and below reverts to a fixed-layout table. Typical rows are 54–56px high, names wrap, and long deck selections remain inside their column. Existing table-group borders and alternating backgrounds are retained. TCG uses three columns; providers with DMP IDs retain four columns. Saved status is an inline check, empty status a dash, and saving status an ellipsis; full status text remains in the live region and title. Errors and unmatched saved decks retain readable text rather than being reduced to an icon. Desktop/tablet layout, archives, API payloads and saving logic are unchanged.
 
 Validation: 164 normal tests pass; browser checks pass at 375/390/430px for three- and four-column rosters, inline saved badges and compact row heights, plus the existing five-width screen/operation regression suite.
+
+## Phone information density follow-up
+
+At 720px and below:
+
+- Hide only the participants page's `#event-info` with CSS. All IDs, values, URL parsing and acquisition stay intact; the card remains visible on tablet/desktop.
+- Reduce the vertical padding in prediction, tournament and period distribution tables to 6px without reducing the text size.
+- Use the shared `.deck-pie` layout for prediction distribution, tournament detail distribution and period distribution: chart on the left, legend on the right. Use a 60:40 chart/legend width ratio (excluding a 10px gap), 10×14px thumbnails and 12px legend text. `deck-pie.js` switches only the SVG viewport at the same breakpoint, including on resize, preserving slices, labels, grouping and totals. Desktop viewport and layout are unchanged.
+- Compact only `#participant-list`: direct name heading, inline ID label, plain history rows (full dates retained), compact prediction summary, select/save on the same row, and a secondary text-style auto-reset control. All controls retain at least 44px targets. Existing DOM nodes and event handlers stay in place.
+
+Measured with the same two test players and three histories each:
+
+| Width | Before (px/player) | After (px/player) |
+| --- | --- | --- |
+| 375 | 766 / 714 | 358 / 314 |
+| 390 | 759 / 714 | 358 / 314 |
+| 430 | 737 / 714 | 339 / 314 |
+| 768 | 733 / 710 | 733 / 710 |
+| 1440 | 247 / 247 | 247 / 247 |
+
+Normal tests: 164 passed. Browser suite covers all five widths, all three distribution components, a long nine-entry legend with thumbnail images, responsive viewport switching, manual save and auto reset, and the prior memo/player/result operations. Live APIs and physical iOS/Android devices were not used. Long native-select options are abbreviated in the closed control; the current prediction and history text remain readable above it. A long legend can still make its panel tall because no entries are removed or hidden.
+
+### Chart-first mobile distribution layout
+
+The shared `.deck-pie` phone grid now uses `minmax(0,3fr) minmax(0,2fr)` with a 10px gap. SVG regions stay square and retain their 240×240 viewBox. Long deck names wrap within the legend and cannot change the column ratio. The three distribution views share this CSS; no chart generation, totals, API or desktop layout changed in this adjustment. At 375/390/430px, the chart region is approximately 179/188/212px wide and the legend 120/126/142px (depending on the surrounding panel). Compared with the previous 36:64 split, the chart is about 68% wider.
+
+## Tournament catalogue search and compact filters
+
+- `events-name-search` performs immediate Japanese substring matching against the last successful `/api/events` response's `event_name`. Matching normalizes NFKC, case and surrounding whitespace. It preserves object data and response order and never sends a request on input.
+- The existing format/date API filter remains authoritative. A date apply fetches the selected range and then applies the current name query locally. Reset clears name/start/end and reloads all dates within the selected format. The name query is session UI state; it is not added to the API or URL.
+- Visible rows and the deletion controller are rebuilt together on name filtering. This exits deletion selection and prevents invisible matches from remaining selected. During fetches the old cache is cleared; the response uses the latest name input. A failed fetch cannot restore stale cached events via a name edit.
+- `reload-events` is retained with its original handler and controller references, but hidden using the HTML `hidden` attribute at every viewport.
+- Above 1200px, the form is one row: wider name input, two dates, apply and reset. At 721–1200px the name spans the first row. At 720px and below the name uses full width, dates use two columns, and actions share the last row. Phone form height is approximately 243px at 375/390/430px, with date input widths approximately 154/161/181px. All rules are scoped to the catalogue.
+- Period summary/trend tools and the format explanation are in a collapsed disclosure. Their existing IDs and click handlers remain intact. Analysis still covers the selected dates/format, independent of the local name query, which the disclosure explains.
+- Tests: 165 normal tests pass. Browser checks cover 375/390/430/768/1440px, name-only and each date combination, Japanese names, empty results, clearing, full reset, unchanged order, no name-input network requests, and clearing deletion selection on filtering. Existing screen/operation smoke checks also pass with mock APIs. No DB/API/schema changes.

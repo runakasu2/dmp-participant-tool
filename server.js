@@ -1,3 +1,5 @@
+const {playerHistorySql, buildDeckInsights} = require(require('node:path').join(__dirname, 'player-insights.js'));
+const {loadRpsSummary, searchGuests, installRpsRoutes} = require(require('node:path').join(__dirname, 'rock-paper-scissors.js'));
 const {extractEventFormat}=require(require('node:path').join(__dirname,'event-format.js'));
 const {fetchEventParticipants} = require(require('node:path').join(__dirname, 'dmp-participants.js'));
 const {getDeckCatalog} = require(require("node:path").join(__dirname, "deck-catalog.js"));
@@ -725,6 +727,10 @@ await pool.query(`
 
       await pool.query(require("node:fs").readFileSync(
         require("node:path").join(__dirname, "migrations/010_deck_formats.sql"), "utf8"
+      ));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/011_rock_paper_scissors.sql"), "utf8"
       ));
 
       res.json({
@@ -1850,13 +1856,10 @@ app.get(
         );
 
 
-      res.json({
-        success: true,
-        count:
-          result.rows.length,
-        players:
-          result.rows
-      });
+      // Opt-in: existing API callers still receive only DMP players.
+      const players = req.query.includeRpsGuests === '1'
+        ? result.rows.concat(await searchGuests(pool, query)) : result.rows;
+      res.json({success: true, count: players.length, players});
 
 
     } catch (error) {
@@ -1946,78 +1949,7 @@ app.get(
       // 大会・デッキ履歴
       // --------------------------
 
-      const historyResult =
-        await pool.query(
-          `
-            SELECT
-              dh.shop_id,
-              dh.event_id,
-              dh.seq,
-              dh.event_date,
-              dh.deck_name,
-              e.event_name,
-              e.participant_count
-
-            FROM deck_history dh
-
-            LEFT JOIN events e
-              ON e.shop_id = dh.shop_id
-              AND e.event_id = dh.event_id
-              AND e.seq = dh.seq
-
-            WHERE
-              dh.player_id = $1
-
-            ORDER BY
-              dh.event_date DESC NULLS LAST,
-              dh.created_at DESC;
-          `,
-          [
-            player.id
-          ]
-        );
-
-
-      // --------------------------
-      // 使用デッキ集計
-      // --------------------------
-
-      const deckSummaryResult =
-        await pool.query(
-          `
-            SELECT
-              deck_name,
-              COUNT(*)::int AS count
-
-            FROM deck_history
-
-            WHERE
-              player_id = $1
-
-            GROUP BY
-              deck_name
-
-            ORDER BY
-              COUNT(*) DESC,
-              deck_name ASC;
-          `,
-          [
-            player.id
-          ]
-        );
-
-
-      const deckSummary =
-        deckSummaryResult.rows.map(
-          (deck) => ({
-            deckName:
-              deck.deck_name,
-
-            count:
-              Number(deck.count)
-          })
-        );
-
+      const historyResult = await pool.query(playerHistorySql, [player.id]);
 
       const history =
         historyResult.rows.map(
@@ -2048,6 +1980,9 @@ app.get(
         );
 
 
+      const insights = buildDeckInsights(history);
+      const rpsSummary = await loadRpsSummary(pool, {playerId: player.id});
+
       res.json({
         success: true,
 
@@ -2062,8 +1997,8 @@ app.get(
         historyCount:
           history.length,
 
-        deckSummary:
-          deckSummary,
+        ...insights,
+        rpsSummary,
 
         history:
           history
@@ -2453,6 +2388,8 @@ app.post("/api/decks/:id/merge", async (req, res) => {
 // ========================================
 // サーバー起動
 // ========================================
+
+installRpsRoutes(app, pool);
 
 require(require("node:path").join(__dirname, "deck-memo.js")).installMemoRoutes(app, pool, globalThis.fetch, fetchEventDetail);
 require(require("node:path").join(__dirname, "deck-memo-archives.js")).installArchiveRoutes(app, pool);
