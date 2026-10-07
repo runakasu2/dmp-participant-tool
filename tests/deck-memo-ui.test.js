@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 class Element {
-  constructor(){this.children=[];this.handlers={};this.classList={add(){}};this.style={};this.value='';this.disabled=false;}
+  constructor(){this.attributes={};this.children=[];this.handlers={};this.classList={add(){}};this.style={};this.value='';this.disabled=false;}
   addEventListener(name,fn){this.handlers[name]=fn;}
-  setAttribute(){}
+  setAttribute(name,value){this.attributes[name]=value;}
   append(...nodes){this.children.push(...nodes);}
   appendChild(node){this.children.push(node);}
   replaceChildren(...nodes){this.children=nodes;}
@@ -35,9 +35,12 @@ test('selection autosaves to loaded admin, summary updates; failed save restores
   elements.get('memo-url').value='https://nojigikucs.com/?admin=second';
   await select.handlers.change();
   assert.equal(savedBody.url,'https://nojigikucs.com/?admin=first');
+  assert.equal(cell.children[1].attributes['data-save-state'],'saved');
+  assert.equal(cell.children[1].attributes.title,'保存しました');
   assert.match(elements.get('memo-summary').textContent,/デッキ登録：1 \/ 1/);
   fail=true;select.value='';await select.handlers.change();
   assert.equal(select.value,'1');assert.match(cell.children[1].textContent,/保存失敗/);
+  assert.equal(cell.children[1].attributes['data-save-state'],'error');
   assert.equal(refresh.disabled,false);
   fail=false;await refresh.handlers.click();
   assert.equal(elements.get('memo-list').children[0].children[3].children[0].value,'1');

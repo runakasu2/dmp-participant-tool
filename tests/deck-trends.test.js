@@ -30,3 +30,14 @@ test('trend UI top5, toggles and selections reuse data; stale responses cannot s
  const pending=controls.load();await Promise.resolve();controls.clear();resolvePending();await pending;
  assert.equal(elements.get('deck-trends').hidden,true);assert.equal(elements.get('deck-trend-chart').children.length,0);
 });
+
+test('trend chart fits a narrow panel and thins date labels without dropping data points',()=>{
+ const container=new Element();container.clientWidth=300;
+ const c=vm.createContext({document:{createElementNS:()=>new Element()},deckPieColor:()=> 'red'});
+ vm.runInContext(fs.readFileSync('deck-trend-ui.js','utf8'),c);
+ const series=buildTrendSeries({events:Array.from({length:20},(_,i)=>({...events[0],eventRecordId:i+1,eventDate:'2026-09-'+String(i+1).padStart(2,'0')}))});
+ c.renderDeckTrend(container,series,'percentage',()=>{});
+ const svg=container.children[0];assert.equal(svg.attrs.viewBox,'0 0 300 340');
+ assert.equal(svg.children.filter(n=>n.attrs.role==='button').length,40);
+ const dates=svg.children.filter(n=>n.attrs.y==='315');assert.ok(dates.length<=4);
+});

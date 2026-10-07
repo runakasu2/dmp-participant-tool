@@ -89,19 +89,25 @@ function normalizeMemoMatching(matching) {
       const select = createDeckSelect(decks, {format:current.event?.format || current.format, deckId:player.deckId, deckName:player.deckName, label:player.name + 'の使用デッキ'});
       selects.push(select);
       const saved = document.createElement('small'); saved.setAttribute('role', 'status');
-      saved.textContent = select.unmatchedDeckName ? '保存済み：' + select.unmatchedDeckName + '（一覧を再取得してください）' : player.deckId === null ? '未登録' : '保存済み';
+      const showSaveStatus = (text, state) => {
+        saved.textContent = text;
+        saved.setAttribute('data-save-state', state);
+        saved.setAttribute('title', text);
+      };
+      showSaveStatus(select.unmatchedDeckName ? '保存済み：' + select.unmatchedDeckName + '（一覧を再取得してください）' : player.deckId === null ? '未登録' : '保存済み',
+        select.unmatchedDeckName ? 'warning' : player.deckId === null ? 'empty' : 'saved');
       select.addEventListener('change', async () => {
         const previous = player.deckId;
-        select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; saved.textContent = '保存中...';
+        select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; showSaveStatus('保存中...', 'saving');
         try {
           const data = await getJson('/api/deck-memo', {method: 'PUT', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({url: loaded.sourceUrl, memoEventId: loaded.memoEventId, ...(tcg ? {} : {dmpId: player.dmpId}), participantKey: player.participantKey, deckId: select.value ? Number(select.value) : null})});
           player.deckId = data.deckId; player.deckName = data.deckName;
-          saved.textContent = data.deckId === null ? '解除しました' : '保存しました';
+          showSaveStatus(data.deckId === null ? '解除しました' : '保存しました', data.deckId === null ? 'empty' : 'saved');
           if (loaded === current) updateSummary();
         } catch (error) {
           select.value = previous === null ? '' : String(previous);
-          saved.textContent = error.message + ' 選び直して再試行してください。';
+          showSaveStatus(error.message + ' 選び直して再試行してください。', 'error');
         } finally { select.disabled = false; saving--; refresh.disabled = saving > 0; updateSummary(); }
       });
       cell.append(select, saved); row.appendChild(cell); list.appendChild(row);

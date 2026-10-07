@@ -8,9 +8,16 @@ function renderPredictionSummary() {
   const status = document.getElementById("prediction-summary-status");
   const list = document.getElementById("prediction-summary-list");
   list.replaceChildren();
-  status.textContent = summary.participantCount
-    ? `参加表明者：${summary.participantCount}人 ／ 予想済み：${summary.predictedCount}人 ／ 不明：${summary.unknownCount}人 ／ 予想カバー率：${summary.coverage}%`
-    : "参加表明者：0人。予想母数を表示するには参加者を取得してください。";
+  status.replaceChildren();
+  status.className = "summary-metrics";
+  for (const [label, value] of [["参加表明者", summary.participantCount + "人"],
+    ["予想済み", summary.predictedCount + "人"], ["不明", summary.unknownCount + "人"],
+    ["予想カバー率", summary.coverage + "%"]]) {
+    const metric = document.createElement("div");
+    const title = document.createElement("span"); title.textContent = label;
+    const number = document.createElement("strong"); number.textContent = value;
+    metric.appendChild(title); metric.appendChild(number); status.appendChild(metric);
+  }
   for (const deck of summary.decks) {
     const row = document.createElement("tr");
     for (const value of [deck.deckName, deck.count + "人", deck.percentage + "%"]) {
@@ -370,6 +377,10 @@ button.addEventListener(
       }
 
 
+      button.disabled = true;
+      button.textContent = "参加者取得中…";
+      document.getElementById("participant-load-status").textContent = "参加者を取得しています…";
+
       // --------------------------
       // 情報表示
       // --------------------------
@@ -582,7 +593,9 @@ button.addEventListener(
         "人" + (data.recentDecksMessage ? "（" + data.recentDecksMessage + "）" : "");
 
 
+      document.getElementById("participant-load-status").textContent = "参加者を取得しました。";
     } catch (error) {
+      document.getElementById("participant-load-status").textContent = "取得に失敗しました。" + error.message;
 
       console.error(
         error
@@ -593,6 +606,9 @@ button.addEventListener(
         "参加者ページを取得できませんでした。\n" +
         error.message
       );
+    } finally {
+      button.disabled = false;
+      button.textContent = "参加者を取得";
     }
   }
 );
@@ -611,6 +627,7 @@ const resetButton =
 resetButton.addEventListener(
   "click",
   () => {
+    document.getElementById("participant-load-status").textContent = "";
     predictionParticipants = [];
     predictionDecks = [];
     document.getElementById("participant-format").textContent = "大会フォーマット：不明";
@@ -747,6 +764,9 @@ resultButton.addEventListener(
         );
       }
 
+
+      document.getElementById("result-event-name").textContent = data.eventName || "大会名未取得";
+      document.getElementById("result-event-date").textContent = data.eventDate || "開催日未取得";
 
       console.log(
         "大会情報・結果:",
@@ -929,10 +949,10 @@ resultButton.addEventListener(
           resultDeckInputs.set(String(participant.id), deckInput);
           const deckNote = document.createElement("small");
           deckNote.textContent = deckInput.unmatchedDeckName
-            ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）。正式デッキを選んで保存するまで履歴は維持されます。" : "";
+            ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）。正式デッキを選んで保存するまで履歴は維持されます。" : "保存済み：" + (savedDeck || "未登録");
           deckInput.onSavedDeck = () => {
             deckNote.textContent = deckInput.unmatchedDeckName
-              ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）" : "";
+              ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）" : "保存済み：" + (deckInput.value ? deckInput.selectedOptions[0].textContent : "未登録");
           };
           deckCell.appendChild(deckNote);
 
@@ -1028,7 +1048,7 @@ resultButton.addEventListener(
 
 
                 deckInput.setSavedDeck(deckId, saveData.normalizedDeckName);
-                deckNote.textContent = "";
+                deckNote.textContent = "保存済み：" + saveData.normalizedDeckName;
 
                 saveButton.textContent =
                   "保存済み";
@@ -1169,6 +1189,9 @@ resultResetButton.addEventListener(
     ).value =
       "";
 
+
+    document.getElementById("result-event-name").textContent = "-";
+    document.getElementById("result-event-date").textContent = "-";
 
     document.getElementById(
       "result-year"

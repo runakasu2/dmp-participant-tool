@@ -20,7 +20,8 @@ function renderDeckTrend(container,series,mode,onPoint){
   container.replaceChildren();
   if(!series.length){container.textContent='表示するデッキを選択してください。';return;}
   const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
-  const events=series[0].points.map(p=>p.event),width=Math.max(720,events.length*95+90),height=340;
+  // Size the drawing itself to the panel so axis text does not shrink on phones.
+  const events=series[0].points.map(p=>p.event),width=Math.max(280,container.clientWidth || 720),height=340;
   const left=55,right=25,top=20,bottom=55,plotWidth=width-left-right,plotHeight=height-top-bottom;
   let maximum=0;for(const s of series)for(const p of s.points)maximum=Math.max(maximum,mode==='count'?p.count:p.percentage);
   const max=Math.max(5,Math.ceil(maximum/5)*5);
@@ -29,7 +30,8 @@ function renderDeckTrend(container,series,mode,onPoint){
   function node(tag,attrs,text){const el=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))el.setAttribute(k,String(v));if(text!==undefined)el.textContent=text;svg.appendChild(el);return el;}
   svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.style.width=width+'px';svg.setAttribute('aria-label','大会ごとのデッキ'+(mode==='count'?'人数':'使用率')+'推移');
   for(let i=0;i<=5;i++){const value=max*i/5;node('line',{x1:left,x2:width-right,y1:y(value),y2:y(value),stroke:'#d8dde5'});node('text',{x:left-8,y:y(value)+4,'text-anchor':'end'},value+(mode==='count'?'人':'%'));}
-  events.forEach((e,i)=>node('text',{x:x(i),y:height-25,'text-anchor':'middle'},e.eventDate.slice(5).replace('-','/')));
+  const labelStep=Math.max(1,Math.ceil(events.length/Math.max(1,Math.floor(plotWidth/60))));
+  events.forEach((e,i)=>{if(i%labelStep===0)node('text',{x:x(i),y:height-25,'text-anchor':'middle'},e.eventDate.slice(5).replace('-','/'));});
   for(const s of series){
     const color=deckPieColor(s),points=s.points.map((p,i)=>`${x(i)},${y(mode==='count'?p.count:p.percentage)}`).join(' ');
     node('polyline',{points,fill:'none',stroke:color,'stroke-width':2});
@@ -71,6 +73,13 @@ function createDeckTrendControls(readFilters){
   document.getElementById('show-deck-trends').addEventListener('click',load);
   for(const value of ['percentage','count'])document.getElementById('trend-'+value).addEventListener('click',()=>{mode=value;if(data?.events.length)render();});
   for(const id of ['events-start-date','events-end-date'])document.getElementById(id).addEventListener('input',clear);
+  if(typeof ResizeObserver!=='undefined') {
+    let lastWidth=0;
+    new ResizeObserver(()=>{
+      const width=chart.clientWidth;
+      if(width && width!==lastWidth){lastWidth=width;if(data?.events.length&&!panel.hidden)render();}
+    }).observe(chart);
+  }
   return {clear,load};
 }
 if(typeof module!=='undefined')module.exports={buildTrendSeries,trendPointDescription};
