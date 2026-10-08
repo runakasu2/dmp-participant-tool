@@ -52,13 +52,16 @@ function renderPlayerInsights(data) {
     selected = player;
     name.value = player.handleName;
     candidates.replaceChildren();
-    selectedLabel.textContent = `${player.handleName} / ${identityLabel(player)}`;
+    selectedLabel.dataset.selected = 'true';
+    selectedLabel.textContent = `✓ 選択済み：${player.handleName} / ${identityLabel(player)}`;
+    status.textContent = '登録先を選択しました。じゃんけんの手を選んで登録してください。';
     view.hidden = Boolean(player.createGuest);
     hand.focus();
   }
   name.addEventListener('input', () => {
     searchVersion++; selected = null; view.hidden = true;
     candidates.replaceChildren();
+    delete selectedLabel.dataset.selected;
     selectedLabel.textContent = 'プレイヤーを検索して選択してください。';
     status.textContent = '';
   });
@@ -93,8 +96,9 @@ function renderPlayerInsights(data) {
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (saving || !form.reportValidity()) return;
-    if (!selected || selected.handleName !== name.value.trim()) {
-      status.textContent = '候補からプレイヤーを選ぶか、新しい記録先を選択してください。'; return;
+    // Identity is held by ID; any user edit already clears it in the input handler.
+    if (!selected) {
+      status.textContent = '候補からプレイヤーを選ぶか、新しい記録先を選択してください。候補の表示だけでは選択されません。'; return;
     }
     if (!Object.hasOwn(rpsHandLabels, hand.value)) { status.textContent = 'じゃんけんの手を選択してください。'; return; }
     saving = true; searchVersion++;

@@ -644,6 +644,7 @@ dialog::backdrop { background: #13233988; }
 .rps-candidates button { text-align: left; justify-content: flex-start; overflow-wrap: anywhere; }
 #rps-player-hint { margin: 8px 0; }
 #rps-selected { overflow-wrap: anywhere; }
+#rps-selected[data-selected="true"] { padding: 10px 12px; border: 2px solid #16834a; border-radius: 8px; background: #effaf3; color: #146c3e; font-weight: 600; }
 .rps-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 #rps-save { background: var(--accent); color: white; border-color: var(--accent); }
 #rps-save:hover:not(:disabled) { background: var(--accent-hover); }

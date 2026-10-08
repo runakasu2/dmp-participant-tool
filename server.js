@@ -1833,13 +1833,13 @@ app.get(
 
             WHERE
               dmp_id = $1
-              OR handle_name ILIKE $2
+              OR BTRIM(handle_name, $4) ILIKE $2
 
             ORDER BY
               CASE
                 WHEN dmp_id = $1
                   THEN 0
-                WHEN LOWER(handle_name) =
+                WHEN LOWER(BTRIM(handle_name, $4)) =
                      LOWER($3)
                   THEN 1
                 ELSE 2
@@ -1851,7 +1851,9 @@ app.get(
           [
             query,
             "%" + query + "%",
-            query
+            query,
+            // ECMAScript trim() whitespace, including full-width space (U+3000).
+            "\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF"
           ]
         );
 

@@ -60,8 +60,10 @@ function responseFor(url,request){
     });
     const go=async key=>{
       if(['players','decks'].includes(key)&&page.viewportSize().width<=720)await page.locator('#menu-more').click();
+      if(key==='players')assert.equal(await page.locator('#menu-players').innerText(),'プレイヤー検索');
       await page.locator('#menu-'+key).click();
       await page.locator('#page-'+key).waitFor({state:'visible'});
+      if(key==='players')assert.equal((await page.locator('#page-players h2').innerText()).trim(),'プレイヤー検索');
     };
     async function check(name,width){
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));

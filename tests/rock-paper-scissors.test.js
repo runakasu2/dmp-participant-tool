@@ -15,6 +15,23 @@ test('RPS allows explicitly selected guest or new identity; names never imply id
   assert.equal(validateRecord({playerName:'同名',hand:'paper',guestId:1}).guestId,1);
   assert.equal(validateRecord({playerName:'同名',hand:'paper',createGuest:true}).createGuest,true);
 });
+test('existing player save resolves DMP ID without requiring the submitted name to match', async () => {
+  const calls=[];
+  const saved = await saveRecord({connect:async()=>({async query(sql,args){
+    calls.push({sql,args});
+    if(sql.startsWith('SELECT id, dmp_id')) {
+      assert.deepEqual(args,['68160']);
+      return {rows:[{id:42,dmp_id:'68160',handle_name:'　オガワ '}]};
+    }
+    if(sql.startsWith('INSERT INTO rock_paper')) {
+      assert.deepEqual(args,[42,null,'rock']);
+      return {rows:[{id:1,hand:'rock'}]};
+    }
+    return {rows:[]};
+  },release(){}})}, {playerName:'別の表示名',dmpId:'68160',hand:'rock'});
+  assert.equal(saved.player.handleName,'　オガワ ');
+  assert.ok(!calls.some(({sql})=>/INSERT INTO (players|rps_guests)|UPDATE players/.test(sql)));
+});
 for (const [counts, expected] of [[[0,0,0],[0,0,0]],[[1,0,0],[100,0,0]],[[5,3,2],[50,30,20]],[[1,1,1],[33.3,33.3,33.3]]]) {
   test(`RPS summary totals and percentages: ${counts}`, () => {
     const result = summarizeHands(['rock','scissors','paper'].map((hand,i) => ({hand,count:String(counts[i])})));
