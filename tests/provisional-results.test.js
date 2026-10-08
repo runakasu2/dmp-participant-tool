@@ -71,3 +71,18 @@ test('result URL retains supported aliases, requires Seq, and failed official fe
  const result=await context.fetchResultsView('https://www.dmp-ranking.com/event.asp?ShopID=s&EventID=e&Seq=2');
  assert.match(result.officialFetchWarning,/公開状況は未確認/);assert.match(calls[1],/seq=2/);
 });
+test('result distribution reuses canonical names and aliases to attach registered images without mutating data',()=>{
+ const vm=require('node:vm');const context=vm.createContext({});
+ vm.runInContext(fs.readFileSync('prediction-summary.js','utf8'),context);
+ vm.runInContext(fs.readFileSync('provisional-results-ui.js','utf8'),context);
+ const decks=[{name:'Deck A',aliases:['旧名'],image_url:'https://example.com/a.png'},{name:'画像なし',aliases:[],image_url:null}];
+ const players=[{deckName:'Deck A'},{deckName:'　旧名 '},{deckName:' deck a '},{deckName:'画像なし'},{deckName:'未知デッキ'},{deckName:null}];
+ const before=JSON.stringify({decks,players});
+ const items=Array.from(context.buildResultsDistributionItems(players,decks));
+ const matched=items.find(item=>item.deckName==='Deck A');
+ assert.equal(matched.count,3);assert.equal(matched.percentage,'50.0');assert.equal(matched.image_url,decks[0].image_url);
+ assert.equal(items.find(item=>item.deckName==='画像なし').image_url,null);
+ assert.equal(items.find(item=>item.deckName==='未知デッキ').image_url,undefined);
+ assert.equal(items.find(item=>item.unknown).image_url,undefined);
+ assert.equal(JSON.stringify({decks,players}),before);
+});

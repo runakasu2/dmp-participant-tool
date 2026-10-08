@@ -25,14 +25,19 @@ async function fetchResultsView(input) {
   if(official)return {...official,resultKind:'official'};
   throw officialError||Error(stored.error);
 }
+// Reuse prediction aggregation's canonical-name/alias rules and the existing deck catalog.
+function buildResultsDistributionItems(participants, decks = []) {
+  const summary = buildPredictionSummary(participants.map(player => ({prediction:{finalDeckName:player.deckName}})), decks);
+  return summary.decks.filter(item => item.count > 0).map(item => item.unknown ? item :
+    {...item, image_url:decks.find(deck => deck.name === item.deckName)?.image_url});
+}
 function renderResultsDistribution(data) {
   const host=document.getElementById('results-distribution');
   host.hidden=false;
   document.getElementById('result-kind').textContent=data.resultKind==='provisional'?'大会結果（仮登録）・公式順位未登録':'大会結果（公式結果）';
   document.getElementById('result-kind').dataset.kind=data.resultKind;
-  const total=data.participants.length,groups=new Map();
-  for(const p of data.participants){const deck=p.deckName||'不明';groups.set(deck,(groups.get(deck)||0)+1);}
-  const items=[...groups].map(([deckName,count])=>({deckName,count,percentage:total?(count/total*100).toFixed(1):'0.0',unknown:deckName==='不明'})).sort((a,b)=>b.count-a.count);
+  const total=data.participants.length;
+  const items=buildResultsDistributionItems(data.participants, data.deckCatalog || []);
   const known=data.participants.filter(p=>p.deckName).length;
   document.getElementById('results-distribution-count').textContent=
     `${data.resultKind==='provisional'?'仮登録':'公式結果'}：${total}人 ／ デッキ判明：${known}人 ／ 不明：${total-known}人。割合の分母：${total}人（${data.resultKind==='provisional'?'仮登録済みユニークプレイヤー数。正式参加人数ではありません':'公式結果の参加者数'}）。`;

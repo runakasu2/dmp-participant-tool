@@ -735,7 +735,6 @@ resultButton.addEventListener(
       // --------------------------
 
       const data = await fetchResultsView(input);
-      renderResultsDistribution(data);
 
       document.getElementById("result-event-name").textContent = data.eventName || "大会名未取得";
       document.getElementById("result-event-date").textContent = data.eventDate || "開催日未取得";
@@ -824,6 +823,7 @@ resultButton.addEventListener(
       const masterData = await masterResponse.json();
       if (!masterResponse.ok) throw new Error(masterData.error || "デッキ一覧を取得できませんでした。");
 
+      data.deckCatalog = masterData.decks;
       const savedDecks = {};
 
 
