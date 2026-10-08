@@ -20,6 +20,7 @@ function responseFor(url,request){
   const body=request.postDataJSON(); if(body)bodies.push({path:url.pathname,body});
   if(url.pathname==='/api/participants')return {count:2,format:'original',decks,participants:players.map(p=>({...p,recentDecks:[1,2,3].map(i=>({deckName:decks[0].name,eventDate:'2026-09-'+(30-i),eventName:'過去の大会'})),prediction:{finalDeckName:decks[0].name,autoDeckName:decks[0].name,source:'auto',autoStatus:'ok',hasManualPrediction:false}}))};
   if(url.pathname==='/api/event-deck-prediction')return {hasManualPrediction:body.mode!=='auto',manualDeckId:body.mode==='auto'?null:2,manualDeckName:body.mode==='auto'?null:decks[1].name};
+  if(url.pathname==='/api/event-results-view')return {error:'No stored result fixture'};
   if(url.pathname==='/api/event-result-from-detail')return {year:2026,shopId:'shop123',eventId:'event456',held:'1',eventName:event.event_name,eventDate:'2026-10-07',count:2,format:'original',participants:players};
   if(url.pathname==='/api/deck-history')return request.method()==='GET'?{decks:[{dmp_id:'000123',deck_name:decks[0].name}]}:{normalizedDeckName:decks[1].name};
   if(url.pathname==='/api/decks')return {decks};

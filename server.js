@@ -733,6 +733,9 @@ await pool.query(`
         require("node:path").join(__dirname, "migrations/011_rock_paper_scissors.sql"), "utf8"
       ));
 
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/012_provisional_event_results.sql"), "utf8"));
+
       res.json({
         success: true,
 
@@ -2407,6 +2410,8 @@ require(require("node:path").join(__dirname, "deck-image-upload.js")).installUpl
 require(require("node:path").join(__dirname,"deck-trends.js")).installDeckTrendRoutes(app,pool);
 
 require(require("node:path").join(__dirname,"deck-period-summary.js")).installPeriodSummaryRoutes(app,pool);
+
+require(require("node:path").join(__dirname,"provisional-results.js")).installProvisionalRoutes(app,pool);
 
 app.listen(
   PORT,

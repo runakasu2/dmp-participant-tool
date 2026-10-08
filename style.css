@@ -705,3 +705,10 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 #result-list .compact-toggle, .compact-player-table .compact-toggle { width: auto; background: var(--surface-muted); color: var(--text); border-color: var(--border); }
 #result-list .compact-name-toggle, .compact-player-table .compact-name-toggle { width: 100%; min-width: 0; display: flex; padding: 4px 0; text-align: left; background: transparent; border-color: transparent; color: var(--accent-hover); }
 .compact-name-toggle .compact-name-text { display: block; text-decoration: underline; }
+#result-kind[data-kind="provisional"] { color: var(--accent-hover); }
+#results-distribution { margin-block: 16px; }
+#results-distribution summary { min-height: 44px; padding-block: 10px; }
+#results-distribution table { min-width: 0; width: 100%; table-layout: fixed; }
+#results-distribution td { overflow-wrap: anywhere; padding: 6px; }
+#memo-provisional-apply, #memo-archive-provisional { margin: 4px 8px 8px 0; min-height: 44px; }
+#result-list tr[data-deck-conflict="true"] .compact-deck small { display: block; color: var(--danger); }

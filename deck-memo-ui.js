@@ -52,6 +52,7 @@ function normalizeMemoMatching(matching) {
     void loadArchives();
   });
   const updateSummary = () => {
+    document.getElementById('memo-provisional-apply').disabled = !current?.event || !current.participants.length || saving > 0 || archiveBusy;
     archiveSave.disabled = !current?.event || !current.participants.length || saving > 0 || archiveBusy;
     if (!current) { summary.textContent = ''; eventInfo.textContent = ''; return; }
     eventInfo.textContent = current.event ? '大会名：' + current.event.eventName + ' ／ 開催日：' + current.event.eventDate : '';
@@ -207,6 +208,32 @@ function normalizeMemoMatching(matching) {
       archiveBusy = false; refresh.disabled = false; selects.forEach(select => {select.disabled = false;}); updateSummary();
     }
   });
+  async function applyProvisional(archiveId) {
+    const saved = await getJson('/api/deck-memo/archives/' + archiveId);
+    const event = saved.event;
+    if(!event.shopId || !event.eventId || !event.seq)throw new Error('大会キーが未確定です。DMP大会URLを入力して再取得してください。');
+    if(!confirm(`${event.eventName}（${event.eventDate}）\nShopID：${event.shopId} / EventID：${event.eventId} / Seq：${event.seq}\n保存済み ${saved.participantCount}人を仮反映します。正式参加人数ではありません。よろしいですか？`))return;
+    const result = await getJson('/api/deck-memo/provisional-results', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({archiveId,shopId:event.shopId,eventId:event.eventId,seq:event.seq,confirmed:true})});
+    document.getElementById('memo-provisional-status').textContent = `仮反映しました：${result.count}人。大会結果ページで同じ大会URLを入力してください。`;
+  }
+  async function provisionalAction(fromLive) {
+    if(archiveBusy || saving)return;
+    archiveBusy=true; updateSummary();
+    try {
+      let id=openedArchive?.id;
+      if(fromLive) {
+        if(!current?.event)throw new Error('DMP大会URLを入力して大会情報を取得してください。');
+        const saved=await getJson('/api/deck-memo/archives',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({memoEventId:current.memoEventId})});
+        id=saved.archiveId; await loadArchives();
+      }
+      if(!id)throw new Error('保存済みメモを開いてください。');
+      await applyProvisional(id);
+    }catch(error){document.getElementById('memo-provisional-status').textContent=error.message;}
+    finally{archiveBusy=false;updateSummary();}
+  }
+  document.getElementById('memo-provisional-apply').addEventListener('click',()=>provisionalAction(true));
+  document.getElementById('memo-archive-provisional').addEventListener('click',()=>provisionalAction(false));
   resetArchive.addEventListener('click', async () => {
     if (!openedArchive || archiveBusy || saving || refresh.disabled) return;
     const target = openedArchive;

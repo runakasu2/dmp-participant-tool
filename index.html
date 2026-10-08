@@ -262,6 +262,14 @@
 
       <section id="results">
 
+        <h2 id="result-kind">大会結果</h2>
+        <p id="result-source-warning" role="status"></p>
+        <section id="results-distribution" hidden>
+          <h3>デッキ分布</h3>
+          <p id="results-distribution-count"></p>
+          <details open><summary>分布一覧</summary><table><thead><tr><th>デッキ</th><th>人数</th><th>割合</th></tr></thead><tbody id="results-distribution-rows"></tbody></table></details>
+          <details open><summary>円グラフ</summary><div id="results-distribution-pie" class="deck-pie"></div></details>
+        </section>
         <h2>
           大会結果参加者
         </h2>
@@ -734,6 +742,9 @@
       <p id="memo-status" role="status">マッチングサイトURLを入力してください。</p>
       <p id="memo-event-info"></p>
       <p id="memo-summary"></p>
+      <button id="memo-provisional-apply" disabled>保存済みメモを大会結果へ仮反映</button>
+      <p id="memo-provisional-status" role="status"></p>
+      <p class="hint">仮反映にはDMP大会URL（ShopID・EventID・Seq）の確定が必要です。入力中のメモは保存済みメモへ保存してから仮反映し、順位・公式履歴は変更しません。</p>
       <button id="memo-archive-save" disabled>この大会のデッキメモを保存</button>
       <p id="memo-archive-save-status" role="status"></p>
       <p class="hint">大会として保存すると、外部サイトのリセット後も下の一覧から確認できます。再保存時は取得済みの全参加者を更新し、後のラウンドにいない選手も保持します。</p>
@@ -755,6 +766,7 @@
       <section id="memo-archive-detail" hidden>
         <h2 id="memo-archive-title"></h2>
         <p id="memo-archive-info" role="status"></p>
+        <button id="memo-archive-provisional">この保存済みメモを大会結果へ仮反映</button>
         <button id="memo-archive-reset" class="danger-button" disabled>この大会のメモをリセット</button>
         <div class="table-scroll"><table>
           <thead><tr id="memo-archive-head"><th>DMP ID</th><th>保存時のハンドルネーム</th><th>使用デッキ</th></tr></thead>
@@ -776,6 +788,7 @@
   <script src="event-filters.js"></script>
   <script src="deck-trend-ui.js"></script>
   <script src="deck-period-ui.js"></script>
+  <script src="provisional-results-ui.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>

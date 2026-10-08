@@ -734,40 +734,8 @@ resultButton.addEventListener(
       // 大会詳細URLをサーバーへ送信
       // --------------------------
 
-      const response =
-        await fetch(
-          "/api/event-result-from-detail",
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-                detailUrl:
-                  input
-              })
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (!response.ok) {
-
-        throw new Error(
-          data.detail ||
-          data.error ||
-          "大会結果を取得できませんでした。"
-        );
-      }
-
+      const data = await fetchResultsView(input);
+      renderResultsDistribution(data);
 
       document.getElementById("result-event-name").textContent = data.eventName || "大会名未取得";
       document.getElementById("result-event-date").textContent = data.eventDate || "開催日未取得";
@@ -948,16 +916,25 @@ resultButton.addEventListener(
             );
 
 
-          const savedDeck = savedDecks[String(participant.id)];
+          const savedDeck = participant.deckName || savedDecks[String(participant.id)];
+          participant.deckName = savedDeck || null;
           const deckInput = createDeckSelect(masterData.decks, {format:data.format, deckName:savedDeck, label:participant.name + "の使用デッキ"});
           resultDeckInputs.set(String(participant.id), deckInput);
           const deckNote = document.createElement("small");
           deckNote.textContent = deckInput.unmatchedDeckName
             ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）。正式デッキを選んで保存するまで履歴は維持されます。" : "保存済み：" + (savedDeck || "未登録");
           deckInput.onSavedDeck = () => {
+            participant.deckName = masterData.decks.find(deck => String(deck.id) === deckInput.value)?.name || deckInput.unmatchedDeckName || null;
+            participant.deckConflict = Boolean(participant.provisionalDeckName && participant.provisionalDeckName !== participant.deckName);
+            if(participant.deckConflict)row.dataset.deckConflict = 'true';
+            else delete row.dataset.deckConflict;
+            renderResultsDistribution(data);
             deckNote.textContent = deckInput.unmatchedDeckName
               ? "保存済み：" + deckInput.unmatchedDeckName + "（マスター未登録）" : "保存済み：" + (deckInput.value ? deckInput.selectedOptions[0].textContent : "未登録");
+            if(participant.deckConflict)deckNote.textContent += ' ／ 仮登録：' + participant.provisionalDeckName + '（差異あり・上書きなし）';
           };
+          if(participant.deckConflict)row.dataset.deckConflict = 'true';
+          if(participant.deckConflict)deckNote.textContent += " ／ 仮登録：" + participant.provisionalDeckName + "（差異あり・上書きなし）";
           deckCell.appendChild(deckNote);
 
           deckCell.appendChild(
@@ -1053,6 +1030,13 @@ resultButton.addEventListener(
 
                 deckInput.setSavedDeck(deckId, saveData.normalizedDeckName);
                 deckNote.textContent = "保存済み：" + saveData.normalizedDeckName;
+                participant.deckName = saveData.normalizedDeckName;
+                participant.deckConflict = Boolean(participant.provisionalDeckName && participant.provisionalDeckName !== participant.deckName);
+                if(participant.deckConflict) {
+                  row.dataset.deckConflict = 'true';
+                  deckNote.textContent += ' ／ 仮登録：' + participant.provisionalDeckName + '（差異あり・上書きなし）';
+                } else delete row.dataset.deckConflict;
+                renderResultsDistribution(data);
 
                 saveButton.textContent =
                   "保存済み";
@@ -1095,9 +1079,13 @@ resultButton.addEventListener(
 
           deckInput.addEventListener("change", () => { saveButton.textContent = "保存"; });
 
-          saveCell.appendChild(
-            saveButton
-          );
+          if(data.resultKind === 'provisional' || !participant.id) {
+            deckInput.disabled = true; saveButton.disabled = true;
+            saveButton.textContent = '仮登録';
+            deckNote.textContent += ' ／ 変更は元のデッキメモで行い、再反映してください。';
+            idCell.textContent = participant.id || 'DMP ID未対応';
+          }
+          saveCell.appendChild(saveButton);
 
 
           row.appendChild(
@@ -1128,7 +1116,8 @@ resultButton.addEventListener(
       );
 
 
-      void setMemoImportTarget({shopId:String(data.shopId),eventId:String(data.eventId),seq:String(data.held)},resultDeckInputs);
+      renderResultsDistribution(data);
+      void setMemoImportTarget(data.resultKind === "provisional" ? null : {shopId:String(data.shopId),eventId:String(data.eventId),seq:String(data.held)},resultDeckInputs);
 
       document.getElementById(
         "result-count"
@@ -1231,6 +1220,9 @@ resultResetButton.addEventListener(
       "result-count"
     ).textContent =
       "取得件数：0人";
+    document.getElementById('results-distribution').hidden = true;
+    document.getElementById('result-kind').textContent = '大会結果';
+    document.getElementById('result-source-warning').textContent = '';
   }
 );
 
