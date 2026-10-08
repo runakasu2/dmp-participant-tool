@@ -103,3 +103,14 @@ The shared `.deck-pie` phone grid now uses `minmax(0,3fr) minmax(0,2fr)` with a 
 - Above 1200px, the form is one row: wider name input, two dates, apply and reset. At 721–1200px the name spans the first row. At 720px and below the name uses full width, dates use two columns, and actions share the last row. Phone form height is approximately 243px at 375/390/430px, with date input widths approximately 154/161/181px. All rules are scoped to the catalogue.
 - Period summary/trend tools and the format explanation are in a collapsed disclosure. Their existing IDs and click handlers remain intact. Analysis still covers the selected dates/format, independent of the local name query, which the disclosure explains.
 - Tests: 165 normal tests pass. Browser checks cover 375/390/430/768/1440px, name-only and each date combination, Japanese names, empty results, clearing, full reset, unchanged order, no name-input network requests, and clearing deletion selection on filtering. Existing screen/operation smoke checks also pass with mock APIs. No DB/API/schema changes.
+
+## Shared compact player rosters
+
+`workspace-ui.js` decorates participant, result, tournament-detail and memo-archive rows with `compact-player-table` / `compact-player-row`. It retains original cells, IDs, inputs and save handlers. The shared `compact-toggle` has `aria-expanded` and stops row navigation; input and API ownership stays in the existing renderers.
+
+- Participants: name, predicted deck, visible auto/manual badge and Details in a single row. Expanded rows retain DMP ID, recent history, manual select/save, auto reset and full status messages.
+- Results: rank, name, select and Save remain available; Details reveals ID, full name and saved-deck notes.
+- Tournament catalogue: event metadata is unchanged; BEST 4 names/decks share a compact line and full text is available via the detail page. Detail-player rows use the shared disclosure.
+- Memo: existing live table and table-pair grouping stay intact; saved archive players use the shared compact rows and disclosure.
+
+Closed rows truncate long text; expanded rows wrap full text. Controls retain 44px tap areas. The browser fixture includes a leading full-width space and checks counts, rank, manual prediction save/reset, deck save, disclosure, memo autosave/pairs, and overflow at 375/390/430/768/1440px, with mocked APIs only.

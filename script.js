@@ -47,6 +47,8 @@ function createPredictionCell(participant, decks, event, onPredictionChanged = (
   const render = () => {
     label.textContent = (prediction.finalDeckName || "不明") +
       (prediction.source === "manual" ? "（手動）" : prediction.autoStatus === "unavailable" ? "（履歴取得失敗）" : "（自動）");
+    label.dataset.source = prediction.source === "manual" ? "手動" : "自動";
+    label.title = label.textContent;
     const current = prediction.hasManualPrediction ? prediction.manualDeckId : decks.find(d => d.name === prediction.autoDeckName)?.id;
     select.setSavedDeck(current, prediction.finalDeckName);
     reset.disabled = !prediction.hasManualPrediction;

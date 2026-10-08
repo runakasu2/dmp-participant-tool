@@ -30,6 +30,7 @@ function createEventCard(event, controls, openDetail) {
   for(const p of players){
     const row=node('div','event-card-result');row.appendChild(node('span','event-card-rank',p.rank+'位'));
     const details=node('div','');details.appendChild(node('strong','',p.handleName||p.dmpId));details.appendChild(node('div','event-card-deck',p.deckName||'未登録'));
+    details.title=(p.handleName||p.dmpId)+' / '+(p.deckName||'未登録')+' / DMP ID：'+p.dmpId;
     row.appendChild(details);best.appendChild(row);
   }
   body.appendChild(best);

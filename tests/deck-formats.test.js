@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class Element{
- constructor(){this.children=[];this.value='';this.handlers={};}
+ constructor(){this.children=[];this.dataset={};this.value='';this.handlers={};}
  setAttribute(){} addEventListener(type,handler){this.handlers[type]=handler;}
  appendChild(child){child.parent=this;this.children.push(child);} append(...children){children.forEach(c=>this.appendChild(c));}
  replaceChildren(){this.children=[];} remove(){this.parent.children=this.parent.children.filter(c=>c!==this);}

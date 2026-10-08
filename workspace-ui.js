@@ -66,10 +66,45 @@
   };
   const cardLists = ['participant-list', 'result-list', 'event-results-list', 'player-search-list',
     'player-history-list', 'memo-list', 'memo-archives-list', 'memo-archive-players', 'memo-import-rows'];
+  const compactLists = new Set(['participant-list', 'result-list', 'event-results-list', 'memo-archive-players']);
+  function compactRow(row, id, headers) {
+    if (row.cells.length < 2 || row.querySelector('[colspan]')) return;
+    row.classList.add('compact-player-row');
+    for (const [index,cell] of [...row.cells].entries()) {
+      const label=headers[index]?.textContent.trim() || '';
+      cell.classList.toggle('compact-identity', /^(ID|DMP ID)$/.test(label));
+      cell.classList.toggle('compact-history', /直近/.test(label));
+      cell.classList.toggle('compact-rank', /順位/.test(label));
+      cell.classList.toggle('compact-deck', /デッキ/.test(label) && !/直近/.test(label));
+      cell.classList.toggle('compact-action', /保存/.test(label) && !/ハンドルネーム/.test(label));
+      const text=cell.querySelector('.player-detail-link') || (!cell.querySelector('select,button') ? cell : null);
+      if(text && text.title !== text.textContent) text.title=text.textContent;
+    }
+    if (row.querySelector('.compact-toggle')) return;
+    const toggle=document.createElement('button');
+    toggle.type='button'; toggle.className='compact-toggle'; toggle.textContent='詳細';
+    toggle.setAttribute('aria-expanded','false');
+    toggle.addEventListener('click',event=>{
+      event.stopPropagation();
+      const expanded=row.classList.toggle('is-expanded');
+      toggle.setAttribute('aria-expanded',String(expanded));
+      if(!toggle.classList.contains('compact-name-toggle'))toggle.textContent=expanded?'閉じる':'詳細';
+    });
+    const host=id==='participant-list' ? row.querySelector('.prediction-cell') : row.querySelector('.is-player-name');
+    if(host?.classList.contains('is-player-name') && !host.querySelector('.player-detail-link')) {
+      const full=document.createElement('span');full.className='compact-name-text';
+      full.textContent=host.textContent;
+      toggle.classList.add('compact-name-toggle');
+      toggle.setAttribute('aria-label',host.textContent+'の詳細を展開・折りたたみ');
+      toggle.replaceChildren(full);host.replaceChildren();
+    }
+    host?.append(toggle);
+  }
   for (const id of cardLists) {
     const body = document.getElementById(id);
     const table = body.closest('table');
     table.classList.add('responsive-cards');
+    if(compactLists.has(id))table.classList.add('compact-player-table');
     // Explicit roles preserve table semantics when mobile CSS reflows rows.
     table.setAttribute('role', 'table');
     body.setAttribute('role', 'rowgroup');
@@ -93,6 +128,7 @@
           cell.setAttribute('role', 'cell');
           cell.classList.toggle('is-player-name', cell.colSpan === 1 && /ハンドルネーム/.test(label));
         });
+        if(compactLists.has(id))compactRow(row,id,headers);
         // Rows that already have click handlers become keyboard accessible too.
         if (row.style.cursor === 'pointer' && !row.querySelector('button, a, input, select')) {
           row.tabIndex = 0;

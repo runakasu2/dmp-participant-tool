@@ -654,3 +654,54 @@ dialog::backdrop { background: #13233988; }
   #page-rps .rps-search-row { flex-direction: row; }
   .rps-search-row button { padding-inline: 10px; }
 }
+
+/* Shared dense player rosters. Data renderers and their controls remain intact. */
+table.compact-player-table { display: block !important; width: 100% !important; min-width: 0 !important; }
+.compact-player-table > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.compact-player-table > tbody { display: block; width: 100%; }
+.compact-player-table > tbody > tr.compact-player-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.5fr); align-items: center; gap: 4px 8px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: var(--surface); padding: 4px 0; }
+.compact-player-table > tbody > tr.compact-player-row > td { display: block; min-width: 0; width: auto; max-width: none; padding: 0 4px; border: 0; font-size: .8125rem; background: transparent; order: 0; }
+.compact-player-table > tbody > tr.compact-player-row > td::before { display: none; }
+.compact-player-table .is-player-name { display: flex !important; align-items: center; gap: 4px; overflow: hidden; }
+.compact-player-table .player-detail-link { display: block; min-width: 0; min-height: 44px; padding: 4px 0; overflow: hidden; white-space: pre; text-overflow: ellipsis; font-size: .8125rem !important; }
+.compact-player-table .compact-toggle { flex-shrink: 0; min-height: 44px; padding: 4px 6px; font-size: .75rem; margin: 0; }
+.compact-player-table tr:not(.is-expanded) > td.compact-identity,
+.compact-player-table tr:not(.is-expanded) > td.compact-history { display: none !important; }
+#participants #participant-list .prediction-cell { display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+#participant-list .prediction-cell > div { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8125rem; }
+#participant-list .prediction-cell > div::before { content: none; }
+#participant-list tr:not(.is-expanded) .prediction-cell > :not(div):not(.compact-toggle) { display: none; }
+#participant-list .prediction-cell .compact-toggle { width: auto; font-size: .75rem; padding: 4px 6px; background: var(--surface-muted); color: var(--text); }
+#participant-list .prediction-cell .compact-toggle::after { content: none; }
+#participant-list tr.is-expanded .prediction-cell { display: flex; flex-wrap: wrap; }
+#participant-list tr.is-expanded .prediction-cell > div { flex-basis: 100%; white-space: normal; }
+#participant-list tr.is-expanded .prediction-cell select { width: calc(100% - 76px); min-width: 0; flex: 1; }
+#participant-list tr.is-expanded .prediction-cell button { width: auto; margin: 0; min-height: 44px; }
+#participant-list tr.is-expanded .prediction-cell small { flex-basis: 100%; }
+.compact-player-table tr.is-expanded > td.compact-identity,
+.compact-player-table tr.is-expanded > td.compact-history { grid-column: 1/-1; color: var(--muted); }
+.compact-player-table tr.is-expanded > td.compact-identity::before { display: inline; content: 'DMP ID：'; }
+.compact-player-table tr.is-expanded .is-player-name { overflow: visible; flex-wrap: wrap; }
+.compact-player-table tr.is-expanded .player-detail-link { white-space: pre-wrap; overflow-wrap: anywhere; }
+#result-list > tr.compact-player-row { grid-template-columns: 28px minmax(0,1fr) minmax(0,1.3fr) 48px; }
+#event-results-list > tr.compact-player-row { grid-template-columns: 44px minmax(0,1fr) minmax(0,1fr); }
+#result-list .deck-select { min-width: 0; width: 100%; min-height: 44px; padding: 4px; margin: 0; font-size: 16px; text-overflow: ellipsis; }
+#result-list tr:not(.is-expanded) .compact-deck small { display: none; }
+#result-list .compact-action button { min-height: 44px; width: 100%; padding: 4px; font-size: .75rem; }
+.compact-player-row:not(.is-expanded) .compact-deck:not(:has(select)) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact-player-row.is-expanded .compact-deck { white-space: normal; overflow-wrap: anywhere; }
+.event-card-result { margin-bottom: 4px; align-items: center; min-height: 32px; font-size: .8125rem; }
+.event-card-result > div { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); gap: 8px; flex: 1; }
+.event-card-result strong, .event-card-deck { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 721px) {
+  .compact-player-table > tbody > tr.compact-player-row { grid-template-columns: minmax(0,1fr) minmax(0,2fr); }
+}
+.compact-name-text { min-width: 0; overflow: hidden; white-space: pre; text-overflow: ellipsis; }
+.is-expanded .compact-name-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+#participant-list tr:not(.is-expanded) .prediction-cell > div { position: relative; padding-right: 34px; }
+#participant-list tr:not(.is-expanded) .prediction-cell > div::after { content: attr(data-source); position: absolute; right: 0; top: 0; padding-left: 4px; background: var(--surface); color: var(--muted); font-size: .6875rem; }
+.compact-player-table [role="status"] { color: var(--muted); font-size: .75rem; }
+.compact-name-text { flex: 1; }
+#result-list .compact-toggle, .compact-player-table .compact-toggle { width: auto; background: var(--surface-muted); color: var(--text); border-color: var(--border); }
+#result-list .compact-name-toggle, .compact-player-table .compact-name-toggle { width: 100%; min-width: 0; display: flex; padding: 4px 0; text-align: left; background: transparent; border-color: transparent; color: var(--accent-hover); }
+.compact-name-toggle .compact-name-text { display: block; text-decoration: underline; }

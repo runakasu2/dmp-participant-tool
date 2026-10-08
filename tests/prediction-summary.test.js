@@ -32,7 +32,7 @@ test('uses final prediction and canonical names; sorts counts then names',()=>{
 });
 
 class Element {
-  constructor(){this.children=[];this.handlers={};this.value='';}
+  constructor(){this.children=[];this.dataset={};this.handlers={};this.value='';}
   addEventListener(type,handler){this.handlers[type]=handler;}
   setAttribute(){}
   replaceChildren(){this.children=[];}
