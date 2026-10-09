@@ -765,3 +765,15 @@ table.compact-player-table { display: block !important; width: 100% !important; 
   .wr-section-title { align-items: flex-start; }
   .wr-matrix th { max-width: 118px; }
 }
+
+/* Searchable native deck selects keep keyboard and mobile selection behavior. */
+.wr-search-controls { display: grid; grid-template-columns: minmax(0,1fr) repeat(2,minmax(0,2fr)); gap: 12px; grid-column: 1 / -1; align-items: start; }
+.wr-deck-choice { display: grid; gap: 4px; min-width: 0; }
+.wr-deck-choice label, .wr-deck-choice small { font-size: .82rem; }
+#wr-search-results { padding: 14px; border: 1px solid var(--border); border-radius: 10px; }
+#wr-search-results table { min-width: 470px; }
+#wr-search-results td:first-child { overflow-wrap: anywhere; max-width: 260px; }
+#wr-search-results button { min-height: 44px; }
+#wr-search-results h3, #wr-search-results p { overflow-wrap: anywhere; }
+
+@media (max-width: 720px) { .wr-search-controls { grid-template-columns: minmax(0,1fr); } }

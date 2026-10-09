@@ -18,3 +18,35 @@ test('memo updates are reflected without changing original input',()=>{const a=m
 test('filter validation includes combined scopes, real dates and rejects ambiguous inputs',()=>{assert.deepEqual(filters({mode:'single',eventRecordId:'1',startDate:'2026-10-01',endDate:'2026-10-10',format:'original',provider:'sugatool'}),{mode:'single',eventRecordId:1,startDate:'2026-10-01',endDate:'2026-10-10',format:'original',provider:'sugatool'});for(const q of [{mode:'single'},{mode:'other'},{eventRecordId:'1'},{mode:'single',eventRecordId:'1 OR 1=1'},{startDate:'2026-02-30'},{startDate:'2026-10-11',endDate:'2026-10-10'},{format:'x'},{provider:['nojigiku','sugatool']}])assert.throws(()=>filters(q));});
 
 test('Bye DMP identity deduplicates across providers; date year zero rejected',()=>{const a=match({outcome:'bye',sides:[side('dmp:100',1,'100')]}),b={...a,archiveId:2,provider:'sugatool',sides:[side('uuid',1,'100')]};const r=aggregate([a,b],catalog);assert.equal(r.exclusions.bye,1);assert.equal(r.counts.duplicatesRemoved,1);assert.throws(()=>filters({startDate:'0000-01-01'}));});
+
+test('deck search equals whole-analysis deck totals, includes unknown opponent and excludes other decks',()=>{
+ const rows=[match(),match({round:2,sides:[side('entry:1',1),side('entry:2',null)]}),match({round:3,sides:[side('entry:1',2),side('entry:2',3)]}),match({round:4,outcome:'bye',sides:[side('entry:1',1)]})];
+ const all=aggregate(rows,catalog),r=aggregate(rows,catalog,{searchMode:'deck',deckAId:1});
+ assert.equal(r.search.stats.matches,2);assert.equal(r.search.stats.wins,2);assert.equal(r.search.stats.observations,deck(all,1).matches);assert.equal(r.search.unknownOpponent.matches,1);assert.equal(r.search.opponents[0].matches,1);assert.equal(r.searchRows.length,2);assert.equal(r.exclusions.bye,1);assert.equal(r.counts.uniqueMatches,3);assert.equal(r.search.events[0].matches,2);
+});
+test('pair search reverses orientation and same deck search preserves mirror physical count',()=>{
+ const rows=[match(),match({round:2}),match({round:3,winnerKey:'entry:2'})];
+ const a=aggregate(rows,catalog,{searchMode:'matchup',deckAId:1,deckBId:2}),b=aggregate(rows,catalog,{searchMode:'matchup',deckAId:2,deckBId:1});
+ assert.equal(a.search.stats.wins,2);assert.equal(b.search.stats.losses,2);assert.ok(Math.abs(a.search.stats.rate+b.search.stats.rate-100)<1e-10);assert.equal(a.search.stats.matches,3);assert.equal(b.searchRows[0].result,'loss');
+ const mirror=aggregate([match({sides:[side('entry:1',1),side('entry:2',1)]})],catalog,{searchMode:'matchup',deckAId:1,deckBId:1});assert.deepEqual(mirror.search.stats,{matches:1,wins:1,losses:1,observations:2,rate:50});assert.equal(mirror.searchRows.length,1);
+});
+test('pair excludes unknown opponent without guessing; deck search reports exclusive exclusion counts',()=>{
+ const rows=[match({sides:[side('entry:1',1),side('entry:2',null)]}),match({round:2,outcome:'unresolved'}),match({round:3,outcome:'double_loss'}),match({round:4,outcome:'bye',sides:[side('entry:1',1)]})];
+ const r=aggregate(rows,catalog,{searchMode:'deck',deckAId:1});assert.deepEqual(r.exclusions,{bye:1,doubleLoss:1,unresolved:1,missingDeck:1,other:0});assert.equal(r.search.stats.matches,1);assert.equal(r.search.opponents.length,0);
+ const pair=aggregate(rows,catalog,{searchMode:'matchup',deckAId:1,deckBId:2});assert.equal(pair.search.stats.matches,0);assert.equal(pair.exclusions.unresolved,1);assert.equal(pair.exclusions.doubleLoss,1);assert.equal(pair.exclusions.missingDeck,0);assert.equal(pair.counts.uniqueMatches,2);
+});
+test('deck search deduplicates before filtering and retains contradictory copies as excluded',()=>{
+ const duplicate=match({archiveId:2,provider:'sugatool'});let r=aggregate([match(),duplicate],catalog,{searchMode:'deck',deckAId:1});assert.equal(r.search.stats.matches,1);assert.equal(r.counts.duplicatesRemoved,1);
+ duplicate.sides=[side('entry:1',3,'100'),side('entry:2',2,'200')];r=aggregate([match(),duplicate],catalog,{searchMode:'deck',deckAId:1});assert.equal(r.search.stats.matches,0);assert.equal(r.exclusions.other,1);
+});
+test('aliases use canonical ID, zero result is successful and memo edits reflect next search',()=>{
+ const row=match({sides:[{...side('entry:1',null),deckName:'ゴルギー'},side('entry:2',2)]});assert.equal(aggregate([row],catalog,{searchMode:'deck',deckAId:1}).search.stats.wins,1);
+ row.sides[0].deckId=3;assert.equal(aggregate([row],catalog,{searchMode:'deck',deckAId:1}).search.stats.matches,0);const empty=aggregate([],catalog,{searchMode:'deck',deckAId:1});assert.equal(empty.search.deck.id,1);assert.equal(empty.search.stats.rate,null);
+});
+test('deck search stats sum across event-local groups without losing Seq or rounds',()=>{
+ const rows=[match(),match({round:2}),match({event:{id:2,seq:'2'},winnerKey:'entry:2'})],r=aggregate(rows,catalog,{searchMode:'deck',deckAId:1});assert.equal(r.search.events.length,2);assert.equal(r.search.events.reduce((n,e)=>n+e.matches,0),r.search.stats.matches);assert.equal(r.search.events.reduce((n,e)=>n+e.wins,0),r.search.stats.wins);
+});
+test('search query validation rejects missing, inconsistent, injected and repeated deck IDs',()=>{
+ for(const q of [{searchMode:'other'},{searchMode:'deck'},{searchMode:'matchup',deckAId:'1'},{deckAId:'1'},{searchMode:'deck',deckAId:'1',deckBId:'2'},{searchMode:'deck',deckAId:'1 OR 1=1'},{searchMode:'deck',deckAId:['1','2']}])assert.throws(()=>filters(q));
+ assert.equal(filters({searchMode:'matchup',deckAId:'1',deckBId:'1'}).deckBId,1);
+});

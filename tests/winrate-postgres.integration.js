@@ -63,3 +63,21 @@ if(require.main===module)test('read-only winrate PostgreSQL: three sources, full
   const failed=await summary();assert.equal(failed.code,500);assert.ok(!failed.body.error.includes('credentials'));assert.ok(rolledBack);f.pool.query=original;
  }finally{await f.db.close();}
 });
+
+if(require.main===module)test('deck/pair search SQL API: scope, directional totals, paged detail, unknown decks, memo freshness and no writes',async()=>{
+ const f=await fixture();try{await seed(f);const {db}=f;
+ const summary=q=>request(f,'/api/winrate/summary',q),deckQuery={searchMode:'deck',deckAId:'1'};
+ const before=(await db.query('SELECT * FROM matching_archive_matches ORDER BY archive_id,round')).rows;
+ const all=(await summary({})).body,one=await summary(deckQuery);assert.equal(one.code,200,JSON.stringify(one.body));assert.equal(one.body.search.stats.observations,all.decks.find(d=>d.deckId===1).matches);assert.equal(one.body.search.events.length,3);assert.equal(one.body.search.opponents[0].matches,6);
+ const q={...deckQuery,mode:'single',eventRecordId:'2',startDate:'2026-10-02',endDate:'2026-10-02',format:'advance',provider:'tcg_meister'};assert.equal((await summary(q)).body.search.stats.matches,2);
+ const pairQuery={searchMode:'matchup',deckAId:'1',deckBId:'2'};let a=(await summary(pairQuery)).body,b=(await summary({...pairQuery,deckAId:'2',deckBId:'1'})).body;assert.equal(a.search.stats.wins,b.search.stats.losses);assert.equal(a.search.stats.matches,b.search.stats.matches);
+ const details=await request(f,'/api/winrate/search-matches',{...pairQuery,revision:a.revision,pageSize:'2'});assert.equal(details.code,200,JSON.stringify(details.body));assert.deepEqual(details.body.search.stats,a.search.stats);assert.equal(details.body.total,6);assert.equal(details.body.matches.length,2);assert.equal((await request(f,'/api/winrate/search-matches',{...pairQuery,page:'2',pageSize:'2'})).body.matches.length,2);
+ assert.equal((await summary({searchMode:'deck',deckAId:'3'})).body.search.stats.matches,0);assert.equal((await summary({searchMode:'deck'})).code,400);assert.equal((await request(f,'/api/winrate/search-matches',{})).code,400);
+ // Clearing only the opponent's memo must leave the known deck's normal record in the deck search.
+ await db.exec("DELETE FROM deck_memos WHERE memo_event_id=1 AND dmp_id='456';");let changed=(await summary(deckQuery)).body;assert.equal(changed.search.stats.matches,6);assert.equal(changed.search.unknownOpponent.matches,2);assert.equal(changed.search.opponents[0].matches,4);assert.equal(changed.exclusions.missingDeck,2);
+ assert.equal((await request(f,'/api/winrate/search-matches',{...pairQuery,revision:a.revision})).code,409);
+ await db.exec("UPDATE deck_memos SET deck_id=2 WHERE memo_event_id=1 AND dmp_id='000123';");assert.equal((await summary(deckQuery)).body.search.stats.matches,4);
+ await db.exec("INSERT INTO deck_memos(memo_event_id,dmp_id,deck_id) VALUES(1,'456',2);");const mirror=(await summary({mode:'single',eventRecordId:'1',searchMode:'matchup',deckAId:'2',deckBId:'2'})).body;assert.deepEqual(mirror.search.stats,{matches:2,wins:2,losses:2,observations:4,rate:50});
+ assert.deepEqual((await db.query('SELECT * FROM matching_archive_matches ORDER BY archive_id,round')).rows,before);
+ }finally{await f.db.close();}
+});
