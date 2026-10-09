@@ -2418,6 +2418,8 @@ require(require("node:path").join(__dirname,"provisional-results.js")).installPr
 
 require(require("node:path").join(__dirname,"matching-archives.js")).installMatchingArchiveRoutes(app,pool);
 
+require(require("node:path").join(__dirname,"winrate-analysis.js")).installWinrateRoutes(app,pool);
+
 app.listen(
   PORT,
   HOST,

@@ -26,6 +26,7 @@
 <button id="menu-deck-memo" class="menu-button" type="button" aria-controls="page-deck-memo"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-9M16 3l5 5-10 10-5 1 1-5z"/></svg><span class="nav-label-desktop">デッキメモ</span><span class="nav-label-mobile">メモ</span></button>
       <button id="menu-more" class="menu-button" type="button" aria-expanded="false" aria-controls="menu-extra"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>その他</span></button>
       <div id="menu-extra" class="menu-extra">
+<button id="menu-winrate" class="menu-button" type="button" aria-controls="page-winrate"><span class="nav-icon" aria-hidden="true">▥</span><span>勝率分析</span></button>
 <button id="menu-players" class="menu-button" type="button" aria-controls="page-players"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="9" r="5"/><path d="m14 13 7 8M4 21a6 6 0 0 1 8-5"/></svg><span>プレイヤー検索</span></button><button id="menu-rps" class="menu-button" type="button" aria-controls="page-rps"><span class="nav-icon" aria-hidden="true">✌️</span><span>じゃんけんデータ</span></button><button id="menu-decks" class="menu-button" type="button" aria-controls="page-decks"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="13" height="17" rx="2"/><path d="M4 7H3v14a2 2 0 0 0 2 2h11M11 8h5m-5 4h5"/></svg><span>デッキ管理</span></button>
       </div>
     </nav>
@@ -794,6 +795,39 @@
       </section>
     </div>
 
+    <div id="page-winrate" class="page" style="display:none;">
+      <h2>勝率分析</h2>
+      <p class="wr-note">保存済み対戦表と同じ大会の現在のデッキメモから集計します。外部サイトの再取得は行いません。</p>
+      <form id="wr-filters" class="wr-filters">
+        <label>集計範囲<select id="wr-mode"><option value="all">全大会</option><option value="single">大会別</option></select></label>
+        <label class="wr-event">大会<select id="wr-event" disabled><option value="">大会を選択</option></select></label>
+        <label>開始日<input id="wr-start" type="date"></label>
+        <label>終了日<input id="wr-end" type="date"></label>
+        <label>フォーマット<select id="wr-format"><option value="">すべて</option><option value="original">オリジナル</option><option value="advance">アドバンス</option><option value="2block">2ブロック</option><option value="unknown">未登録</option></select></label>
+        <label>提供サイト<select id="wr-provider"><option value="">すべて</option><option value="nojigiku">のじぎく</option><option value="tcg_meister">TCGマイスター</option><option value="sugatool">スガツール</option></select></label>
+        <button type="submit" id="wr-reload">再集計</button>
+      </form>
+      <p id="wr-status" role="status" aria-live="polite"></p>
+      <div id="wr-results" hidden>
+        <div id="wr-counts" class="wr-counts"></div>
+        <details class="wr-exclusions"><summary>集計対象外・重複除外の内訳</summary><div id="wr-exclusions"></div>
+          <p class="wr-note">保存元同士の競合は「その他」へ、それ以外は Bye → 両者敗北 → 未判定 → その他（不正）→ デッキ未登録の順に排他的に分類します。確実な同一IDの対戦だけ重複除外し、異なるサイト間でIDを照合できない記録は統合しません。</p>
+        </details>
+        <div class="wr-section-title"><h3>デッキ別勝率</h3><label>並び順<select id="wr-sort"><option value="matches">試合数の多い順</option><option value="rate">勝率の高い順</option><option value="name">デッキ名順</option></select></label></div>
+        <p class="wr-note">勝率＝勝利数÷（勝利数＋敗北数）。試合数はデッキ使用者の成績数です。ミラー1試合は1勝1敗（2人分）。相手のデッキが不明でも、判明している側の成績は含みます。</p>
+        <div class="wr-scroll"><table class="wr-decks"><thead><tr><th scope="col">デッキ</th><th scope="col">試合数</th><th scope="col">勝</th><th scope="col">敗</th><th scope="col">勝率</th></tr></thead><tbody id="wr-decks"></tbody></table></div>
+        <h3>対面勝率</h3>
+        <p class="wr-note">縦軸のデッキ基準。各セルは勝率と実際の対戦数です。両者のデッキが判明した通常試合のみ。ミラーは1試合につき1勝1敗、勝率50%。少数の試合では母数にもご注意ください。</p>
+        <div id="wr-axis" class="wr-axis" hidden><label>縦軸の範囲<select id="wr-row-range"></select></label><label>横軸の範囲<select id="wr-col-range"></select></label></div>
+        <div class="wr-scroll" tabindex="0" aria-label="対面勝率マトリクス、横にスクロールできます"><table class="wr-matrix"><thead id="wr-matrix-head"></thead><tbody id="wr-matrix-body"></tbody></table></div>
+        <section id="wr-detail" hidden aria-labelledby="wr-detail-title">
+          <div class="wr-section-title"><h3 id="wr-detail-title">対面詳細</h3><button id="wr-detail-close" type="button">閉じる</button></div>
+          <p id="wr-detail-status" role="status"></p><div id="wr-detail-matches"></div>
+          <div class="wr-pagination"><button id="wr-prev" type="button">前へ</button><span id="wr-page"></span><button id="wr-next" type="button">次へ</button></div>
+        </section>
+      </div>
+    </div>
+
   </main>
 
 
@@ -813,6 +847,7 @@
   <script src="matching-archive-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>
   <script src="rps-ui.js"></script>
+  <script src="winrate-ui.js"></script>
   <script src="workspace-ui.js"></script>
 
 </body>

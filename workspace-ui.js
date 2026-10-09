@@ -8,7 +8,7 @@
   const pageNames = {
     participants: '参加表明', results: '大会結果', events: '大会一覧',
     'event-detail': '大会詳細', players: 'プレイヤー検索', 'player-detail': 'プレイヤー詳細',
-    rps: 'じゃんけんデータ', decks: 'デッキ管理', 'deck-memo': 'デッキメモ'
+    winrate: '勝率分析', rps: 'じゃんけんデータ', decks: 'デッキ管理', 'deck-memo': 'デッキメモ'
   };
   let currentPage;
   function closeMore(returnFocus = false) {
@@ -43,7 +43,7 @@
       if (active) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
     });
-    more.classList.toggle('has-active', ['decks', 'players', 'rps'].includes(parent));
+    more.classList.toggle('has-active', ['decks', 'players', 'rps', 'winrate'].includes(parent));
     document.getElementById('current-page-label').textContent = pageNames[key] || '大会データ';
     if (currentPage && currentPage !== page) {
       closeMore();

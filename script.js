@@ -162,6 +162,8 @@ const pagePlayerDetail =
 // ========================================
 
 function hideAllPages() {
+  const analysis = document.getElementById("page-winrate");
+  if (analysis) analysis.style.display = "none";
   document.getElementById("page-rps").style.display = "none";
   document.getElementById("page-deck-memo").style.display = "none";
 
@@ -193,6 +195,7 @@ function hideAllPages() {
 // ========================================
 
 function clearActiveMenus() {
+  document.getElementById("menu-winrate")?.classList.remove("active");
   document.getElementById("menu-rps").classList.remove("active");
   document.getElementById("menu-deck-memo").classList.remove("active");
 
