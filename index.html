@@ -742,6 +742,11 @@
       <p id="memo-status" role="status">マッチングサイトURLを入力してください。</p>
       <p id="memo-event-info"></p>
       <p id="memo-summary"></p>
+      <div class="matching-tools">
+        <label for="memo-round">表示ラウンド</label><select id="memo-round" disabled><option>最新ラウンド</option></select>
+        <button id="matching-save" disabled>全ラウンドの対戦表を保存・更新</button>
+      </div>
+      <p id="matching-status" role="status"></p>
       <button id="memo-provisional-apply" disabled>保存済みメモを大会結果へ仮反映</button>
       <p id="memo-provisional-status" role="status"></p>
       <p class="hint">仮反映にはDMP大会URL（ShopID・EventID・Seq）の確定が必要です。入力中のメモは保存済みメモへ保存してから仮反映し、順位・公式履歴は変更しません。</p>
@@ -754,6 +759,12 @@
           <tbody id="memo-list"></tbody>
         </table>
       </div>
+      <section>
+        <h2>保存済み対戦表</h2>
+        <p class="hint">元サイトのデータ消去後も参照できます。削除するのは対戦表のみです。</p>
+        <button id="matching-reload" type="button">対戦表一覧を更新</button>
+        <div id="matching-archive-list"></div>
+      </section>
       <section>
         <h2>保存済みデッキメモ</h2>
         <button id="memo-archives-reload">一覧を更新</button>
@@ -791,6 +802,7 @@
   <script src="provisional-results-ui.js"></script>
   <script src="script.js"></script>
   <script src="deck-memo-ui.js"></script>
+  <script src="matching-archive-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>
   <script src="rps-ui.js"></script>
   <script src="workspace-ui.js"></script>

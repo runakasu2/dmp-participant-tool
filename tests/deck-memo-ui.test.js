@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 class Element {
-  constructor(){this.attributes={};this.children=[];this.handlers={};this.classList={add(){}};this.style={};this.value='';this.disabled=false;}
+  constructor(){this.dataset={};this.attributes={};this.children=[];this.handlers={};this.classList={add(){}};this.style={};this.value='';this.disabled=false;}
   addEventListener(name,fn){this.handlers[name]=fn;}
   setAttribute(name,value){this.attributes[name]=value;}
   append(...nodes){this.children.push(...nodes);}
@@ -13,7 +13,7 @@ class Element {
 test('selection autosaves to loaded admin, summary updates; failed save restores selection; refresh loads saved memo',async()=>{
   const elements=new Map();
   let stored=null, fail=false, requests=0, savedBody;
-  const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
+  const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
     requests++;
     if(url==='/api/decks?sort=usage') return {ok:true,json:async()=>({success:true,decks:[{id:1,name:'A'}]})};
     if(url==='/api/deck-memo') {
@@ -49,7 +49,7 @@ test('selection autosaves to loaded admin, summary updates; failed save restores
 
 test('saved list and detail can be opened without either external API or current matching',async()=>{
   const elements=new Map(),paths=[];
-  const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async url=>{
+  const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async url=>{
     paths.push(url);
     assert.ok(url.startsWith('/api/deck-memo/archives'));
     return{ok:true,json:async()=>url.endsWith('/7')?{success:true,event:{eventName:'保存済みCS',eventDate:'2026-09-28',adminKey:'hattics'},participantCount:2,registeredCount:1,
@@ -70,7 +70,7 @@ test('saved list and detail can be opened without either external API or current
 test('reset sends deletion only after both confirmations',async()=>{
   for(const answers of [[false],[true,false],[true,true]]) {
     const elements=new Map();let prompts=0,deletions=0;
-    const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},confirm:()=>answers[prompts++],fetch:async(url)=>{
+    const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},confirm:()=>answers[prompts++],fetch:async(url)=>{
       if(url.endsWith('/reset')){deletions++;return{ok:true,json:async()=>({success:true,memoEventIds:[]})};}
       return{ok:true,json:async()=>url.endsWith('/7')?{success:true,event:{id:7,eventName:'大会A',eventDate:'2026-09-28'},participants:[],participantCount:0,registeredCount:0}:
         {success:true,events:[{id:7,event_name:'大会A',event_date:'2026-09-28',registered_count:0,participant_count:0}]}};
@@ -87,7 +87,7 @@ test('reset sends deletion only after both confirmations',async()=>{
 
 test('TCG memo UI has only table/name/deck, saves by provider key and preserves selection on refresh',async()=>{
   const elements=new Map(),calls=[];let deckId=null;
-  const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
+  const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
     const body=options?.body?JSON.parse(options.body):null;calls.push({url,body});
     if(url==='/api/decks?sort=usage')return {ok:true,json:async()=>({success:true,decks:[{id:1,name:'正式デッキ'}]})};
     if(url==='/api/deck-memo') {deckId=body.deckId;return {ok:true,json:async()=>({success:true,deckId,deckName:'正式デッキ'})};}
@@ -112,7 +112,7 @@ test('latest TCG matching rows and header share 32 unique real players even when
  const elements=new Map();
  const people=Array.from({length:32},(_,i)=>({participantKey:'id:'+i,internalParticipantId:String(i),name:'player'+i,table:Math.floor(i/2)+1,round:5,deckId:null,bye:i===31}));
  const matching={success:true,provider:'tcg_meister',latestRound:5,participantCount:0,adminKey:'5482242',participants:[...people,...people.slice(0,3),{name:'BYE',participantKey:'bye',round:5},{name:'不戦勝',participantKey:'bye2'},{name:'',participantKey:'empty'},{name:'old',participantKey:'old',round:4}]};
- const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},fetch:async url=>({ok:true,json:async()=>url.startsWith('/api/decks?')?{success:true,decks:[]}:matching})});
+ const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},fetch:async url=>({ok:true,json:async()=>url.startsWith('/api/decks?')?{success:true,decks:[]}:matching})});
  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
  vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
  await elements.get('memo-refresh').handlers.click();
@@ -131,7 +131,7 @@ test('all memo providers use event format; standalone provider fallback and save
   ['nojigiku',null,null,['未選択','A','B']]
  ]) {
   const elements=new Map();
-  const context=vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element()},fetch:async url=>({ok:true,json:async()=>url.includes('/api/decks')?{success:true,decks:[{id:1,name:'A',formats:['original']},{id:2,name:'B',formats:['advance']}]}:
+  const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element()},fetch:async url=>({ok:true,json:async()=>url.includes('/api/decks')?{success:true,decks:[{id:1,name:'A',formats:['original']},{id:2,name:'B',formats:['advance']}]}:
    {success:true,provider,event:eventFormat?{format:eventFormat}:null,format:providerFormat,latestRound:1,participants:[{dmpId:'1',participantKey:'id:1',internalParticipantId:'1',name:'Player',round:1,table:1,deckId:2,deckName:'B'}]}})});
   vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);

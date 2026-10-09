@@ -736,6 +736,9 @@ await pool.query(`
       await pool.query(require("node:fs").readFileSync(
         require("node:path").join(__dirname, "migrations/012_provisional_event_results.sql"), "utf8"));
 
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/013_matching_archives.sql"), "utf8"));
+
       res.json({
         success: true,
 
@@ -2412,6 +2415,8 @@ require(require("node:path").join(__dirname,"deck-trends.js")).installDeckTrendR
 require(require("node:path").join(__dirname,"deck-period-summary.js")).installPeriodSummaryRoutes(app,pool);
 
 require(require("node:path").join(__dirname,"provisional-results.js")).installProvisionalRoutes(app,pool);
+
+require(require("node:path").join(__dirname,"matching-archives.js")).installMatchingArchiveRoutes(app,pool);
 
 app.listen(
   PORT,

@@ -35,6 +35,7 @@ function responseFor(url,request){
   if(url.pathname==='/api/player-detail')return {player:{dmpId:'000123',handleName:players[0].name},deckSummary:[{deckName:decks[0].name,count:3}],historyCount:1,history:[{eventDate:'2026-10-01',eventName:event.event_name,deckName:decks[0].name}]};
   if(url.pathname==='/api/deck-memo/matching')return {provider:memoProvider,sourceUrl:body.url,adminKey:'5856470',latestRound:1,event:{eventName:event.event_name,eventDate:'2026-10-07'},participants:memoPlayers.map((p,i)=>({...p,...(memoProvider==='tcg_meister'?{}:{dmpId:String(i+123).padStart(6,'0')})}))};
   if(url.pathname==='/api/deck-memo')return {deckId:2,deckName:decks[1].name};
+  if(url.pathname==='/api/matching-archives')return {archives:[]};
   if(url.pathname==='/api/deck-memo/archives')return {events:[{...event,registered_count:2}]};
   if(url.pathname==='/api/deck-memo/archives/1')return {event:{id:1,eventName:event.event_name,eventDate:'2026-10-07',provider:'tcg_meister',adminKey:'5856470'},participantCount:2,registeredCount:2,participants:players.map(p=>({name:p.name,deckName:decks[0].name}))};
   if(url.pathname==='/api/deck-memo/import-preview')return {archive:null};

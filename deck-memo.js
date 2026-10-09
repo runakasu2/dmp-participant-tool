@@ -106,7 +106,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         res.set?.('Cache-Control', 'no-store');
         return res.json(result);
       }
-      let matching,users={rows:[]};
+      let matching,allRounds=null,users={rows:[]};
       if(source.provider==='sugatool')matching=await fetchSugatool(source,fetchImpl);
       else {
         const [matches, fetchedUsers] = await Promise.all([
@@ -114,7 +114,9 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
           fetchSource('get-users', adminKey, fetchImpl).then(rows => ({rows}), () => ({rows: [], failed: true}))
         ]);
         users=fetchedUsers;matching=latestMatching(matches,users.rows);
+        allRounds=require('./matching-providers/nojigiku-results').normalizeNojigikuMatches(matches,users.rows);
       }
+      const rosterParticipants=allRounds?[...new Map(allRounds.flatMap(r=>r.participants).filter(p=>p.dmpId).map(p=>[p.dmpId,p])).values()]:matching.participants;
       let event;
       if (detail) {
         const linked = await pool.query(`
@@ -131,16 +133,16 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
           ON CONFLICT (source, admin_key, event_record_id) DO UPDATE SET
             source_url = EXCLUDED.source_url, updated_at = CURRENT_TIMESTAMP RETURNING id
         `, [adminKey, sourceUrl, linked.rows[0].id,source.provider]);
-        if (matching.participants.length) {
+        if (rosterParticipants.length) {
           await pool.query(`
             INSERT INTO deck_memo_roster (memo_event_id, dmp_id, handle_name, entry_no, table_no, round)
-            SELECT $1::integer, x.id, x.name, x.entry, x.table_no, $3::integer
-            FROM jsonb_to_recordset($2::jsonb) AS x(id varchar(50), name text, entry text, table_no integer)
+            SELECT $1::integer, x.id, x.name, x.entry, x.table_no, COALESCE(x.round,$3::integer)
+            FROM jsonb_to_recordset($2::jsonb) AS x(id varchar(50), name text, entry text, table_no integer, round integer)
             ON CONFLICT (memo_event_id, dmp_id) DO UPDATE SET
               handle_name = EXCLUDED.handle_name, entry_no = EXCLUDED.entry_no,
               table_no = EXCLUDED.table_no, round = EXCLUDED.round
-          `, [event.rows[0].id, JSON.stringify(matching.participants.map(p => ({id:p.dmpId, name:p.name,
-            entry:p.entryNo == null ? null : String(p.entryNo), table_no:p.table}))), matching.latestRound]);
+          `, [event.rows[0].id, JSON.stringify(rosterParticipants.map(p => ({id:p.dmpId, name:p.name,
+            entry:p.entryNo == null ? null : String(p.entryNo), table_no:p.table,round:p.round??matching.latestRound}))), matching.latestRound]);
         }
       } else {
         event = await pool.query(`
@@ -158,6 +160,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         deckId: byId.get(player.dmpId)?.deck_id ?? null, deckName: byId.get(player.dmpId)?.deck_name ?? null}));
       res.set?.('Cache-Control', 'no-store');
       res.json({success: true, provider: source.provider, event: detail, format:detail?.format || matching.format || null, adminKey, sourceUrl, memoEventId: event.rows[0].id,
+        ...(allRounds?{rounds:allRounds.map(r=>({...r,participants:r.participants.map(p=>({...p,deckId:byId.get(p.dmpId)?.deck_id??null,deckName:byId.get(p.dmpId)?.deck_name??null}))}))}:{}),
         latestRound: matching.latestRound, participants, participantCount: participants.length,
         registeredCount: participants.filter(player => player.deckId !== null).length,
         warning: matching.warning || (users.failed ? '参加者名一覧を取得できなかったため、対戦表の名前を表示しています。' : null)});

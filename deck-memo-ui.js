@@ -30,6 +30,8 @@ function normalizeMemoMatching(matching) {
   const status = document.getElementById('memo-status');
   const summary = document.getElementById('memo-summary');
   const list = document.getElementById('memo-list');
+  const roundSelect=document.getElementById('memo-round');
+  let displayRound=null,deckCatalog=[],pairingBusy=false;
   let current = null;
   let saving = 0;
   let matchingDiagnostic=null;
@@ -50,15 +52,20 @@ function normalizeMemoMatching(matching) {
     hideAllPages(); clearActiveMenus();
     page.style.display = 'block'; menu.classList.add('active');
     void loadArchives();
+    document.dispatchEvent(new Event('matching-archives-refresh'));
   });
   const updateSummary = () => {
-    document.getElementById('memo-provisional-apply').disabled = !current?.event || !current.participants.length || saving > 0 || archiveBusy;
-    archiveSave.disabled = !current?.event || !current.participants.length || saving > 0 || archiveBusy;
+    roundSelect.disabled = !current?.rounds?.length || saving > 0 || archiveBusy || pairingBusy;
+    document.getElementById('matching-save').disabled = !current?.event || current.provider!=='nojigiku' || saving > 0 || archiveBusy || pairingBusy;
+    document.dispatchEvent(new Event('matching-context-change'));
+    document.getElementById('memo-provisional-apply').disabled = !current?.event || !current.participants.length || (current.saved&&!current.memoEventId) || saving > 0 || archiveBusy || pairingBusy;
+    archiveSave.disabled = !current?.event || !current.participants.length || (current.saved&&!current.memoEventId) || saving > 0 || archiveBusy || pairingBusy;
     if (!current) { summary.textContent = ''; eventInfo.textContent = ''; return; }
     eventInfo.textContent = current.event ? '大会名：' + current.event.eventName + ' ／ 開催日：' + current.event.eventDate : '';
-    summary.textContent = (current.latestRound === null ? '未公開' : '現在：Round ' + current.latestRound) +
-      ' ／ 参加者：' + current.participants.length + '人 ／ デッキ登録：' +
-      current.participants.filter(player => player.deckId !== null).length + ' / ' + current.participants.length +
+    const visible=current.rounds?.find(r=>r.round===displayRound)?.participants||current.participants;
+    summary.textContent = (current.latestRound === null ? '未公開' : '表示：Round ' + (displayRound??current.latestRound) + ' ／ 最新：Round ' + current.latestRound) +
+      ' ／ 参加者：' + visible.length + '人 ／ デッキ登録：' +
+      visible.filter(player => player.deckId != null).length + ' / ' + visible.length +
       (current.provider === 'tcg_meister' ? ' ／ TCGマイスター tid：' : current.provider === 'sugatool' ? ' ／ スガツール event：' : ' ／ admin：') + current.adminKey;
   };
   async function getJson(url, options) {
@@ -72,22 +79,26 @@ function normalizeMemoMatching(matching) {
     selects = [];
     let previousTable = null, group = 0;
     const loaded = current;
+    const visible=loaded.rounds?.find(r=>r.round===displayRound)?.participants||loaded.participants;
     const tcg = loaded.provider === 'tcg_meister';
     document.getElementById('memo-table-head').replaceChildren();
     for (const label of tcg ? ['卓','ハンドルネーム','使用デッキ'] : ['卓','DMP ID','ハンドルネーム','使用デッキ']) {
       const th = document.createElement('th'); th.textContent = label; document.getElementById('memo-table-head').appendChild(th);
     }
-    for (const player of loaded.participants) {
+    for (const player of visible) {
       const row = document.createElement('tr');
       if (previousTable !== player.table) { row.classList.add('memo-table-start'); group++; }
       if (group % 2) row.classList.add('memo-table-shade');
       previousTable = player.table;
-      const values = tcg ? [player.bye ? '不戦勝' : player.table, player.name] : [player.table??'卓なし', player.dmpId, player.name];
+      const values = tcg ? [player.bye ? '不戦勝' : player.table, player.name] : [player.table??'卓なし', player.dmpId??'未取得', player.name];
       for (const value of values) {
         const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
       }
+      if(player.opponentName){row.title='対戦相手：'+player.opponentName;const detail=document.createElement('details');detail.className='matching-player-detail';const label=document.createElement('summary');label.textContent=player.name;const text=document.createElement('span');text.textContent='プレイヤー：'+player.name+' ／ 対戦相手：'+player.opponentName+' ／ '+(player.outcome==='win_loss'?(player.winnerKey===player.participantKey?'勝ち':'負け'):player.outcome==='bye'?'不戦勝表記／相手なし':'勝敗未判定');detail.append(label,text);row.cells[tcg?1:2].replaceChildren(detail);}
       const cell = document.createElement('td');
       const select = createDeckSelect(decks, {format:current.event?.format || current.format, deckId:player.deckId, deckName:player.deckName, label:player.name + 'の使用デッキ'});
+      select.disabled=pairingBusy || (!tcg&&!player.dmpId) || (loaded.saved && !loaded.memoEventId);
+      select.dataset.memoReadOnly=String(select.disabled&&!pairingBusy);
       selects.push(select);
       const saved = document.createElement('small'); saved.setAttribute('role', 'status');
       const showSaveStatus = (text, state) => {
@@ -99,11 +110,12 @@ function normalizeMemoMatching(matching) {
         select.unmatchedDeckName ? 'warning' : player.deckId === null ? 'empty' : 'saved');
       select.addEventListener('change', async () => {
         const previous = player.deckId;
-        select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; showSaveStatus('保存中...', 'saving');
+        select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; updateSummary(); showSaveStatus('保存中...', 'saving');
         try {
           const data = await getJson('/api/deck-memo', {method: 'PUT', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({url: loaded.sourceUrl, memoEventId: loaded.memoEventId, ...(tcg ? {} : {dmpId: player.dmpId}), participantKey: player.participantKey, deckId: select.value ? Number(select.value) : null})});
           player.deckId = data.deckId; player.deckName = data.deckName;
+          for(const p of [...loaded.participants,...(loaded.rounds||[]).flatMap(r=>r.participants)])if(tcg||!player.dmpId?p.participantKey===player.participantKey:p.dmpId===player.dmpId){p.deckId=data.deckId;p.deckName=data.deckName;}
           showSaveStatus(data.deckId === null ? '解除しました' : '保存しました', data.deckId === null ? 'empty' : 'saved');
           if (loaded === current) updateSummary();
         } catch (error) {
@@ -116,9 +128,9 @@ function normalizeMemoMatching(matching) {
     updateSummary();
   }
   async function load() {
-    if (refresh.disabled || saving || archiveBusy) return;
+    if (refresh.disabled || saving || archiveBusy || pairingBusy) return;
     refresh.disabled = true; input.disabled = true; dmpInput.disabled = true; archiveSaveStatus.textContent = '';
-    list.replaceChildren(); current = null; updateSummary();
+    list.replaceChildren(); current = null;displayRound=null;updateRoundOptions(); updateSummary();
     status.textContent = '最新の対戦表を取得中...';
     try {
       const [matching, decks] = await Promise.all([
@@ -131,7 +143,9 @@ function normalizeMemoMatching(matching) {
         rawCount:rawPlayers.length,server:matching.countDiagnostic||null,
         roundCounts:rawPlayers.reduce((counts,p)=>{const key=String(p.round??'missing');counts[key]=(counts[key]||0)+1;return counts;},{}),
         blankNames:rawPlayers.filter(p=>!String(p.name??p.handleName??'').trim()).length};
+      deckCatalog=decks.decks;displayRound=matching.latestRound;
       current = normalizeMemoMatching(matching);
+      updateRoundOptions();
       matchingDiagnostic.normalizedCount=current.participants.length;
       render(decks.decks);
       status.textContent = matching.latestRound === null ? '現在、対戦表は公開されていません' : '最新の対戦表を取得しました。';
@@ -139,6 +153,21 @@ function normalizeMemoMatching(matching) {
     } catch (error) { status.textContent = error.message; }
     finally { refresh.disabled = false; input.disabled = false; dmpInput.disabled = false; }
   }
+  function updateRoundOptions(){
+    roundSelect.replaceChildren();
+    for(const round of current?.rounds||[{round:current?.latestRound}]){const option=document.createElement('option');option.value=String(round.round??'');option.textContent=round.round?'Round '+round.round+(round.round===current?.latestRound?'（最新）':''):'最新ラウンド';roundSelect.append(option);}
+    roundSelect.value=String(displayRound??'');
+  }
+  roundSelect.addEventListener('change',()=>{if(saving||archiveBusy||pairingBusy){roundSelect.value=String(displayRound??'');return;}displayRound=Number(roundSelect.value);render(deckCatalog);});
+  if(typeof window!=='undefined')window.getMemoMatchingContext=()=>current?{provider:current.provider,url:current.sourceUrl,shopId:current.event?.shopId,eventId:current.event?.eventId,seq:current.event?.held??current.event?.seq,archiveId:current.archiveId,busy:saving>0||archiveBusy||refresh.disabled}:null;
+  document.addEventListener('memo-open-matching-archive',event=>{
+    if(saving||archiveBusy||refresh.disabled)return;
+    current=event.detail.matching;deckCatalog=event.detail.decks;displayRound=current.latestRound;
+    input.value=current.sourceUrl;dmpInput.value='https://www.dmp-ranking.com/event.asp?'+new URLSearchParams({ShopID:current.event.shopId,EventID:current.event.eventId,Seq:current.event.held});
+    updateRoundOptions();render(deckCatalog);status.textContent='保存済み対戦表を表示しています。'+(!current.memoEventId?' 元のデッキメモがないため、デッキは参照のみです。':'');
+  });
+  document.addEventListener('matching-archive-deleted',event=>{if(current?.archiveId!==event.detail.archiveId)return;current=null;displayRound=null;list.replaceChildren();selects=[];updateRoundOptions();updateSummary();status.textContent='保存済み対戦表を削除しました。デッキメモは保持しています。';});
+  document.addEventListener('matching-operation-busy',event=>{pairingBusy=event.detail;refresh.disabled=pairingBusy||saving>0;input.disabled=pairingBusy;dmpInput.disabled=pairingBusy;for(const select of selects)select.disabled=pairingBusy||saving>0||select.dataset.memoReadOnly==='true';updateSummary();});
   let detailRequest = 0;
   async function openArchive(id) {
     const request = ++detailRequest;
@@ -195,7 +224,7 @@ function normalizeMemoMatching(matching) {
   }
   archiveSave.addEventListener('click', async () => {
     if (archiveSave.disabled || saving || archiveBusy || !current) return;
-    archiveBusy = true; archiveSave.disabled = true; refresh.disabled = true;
+    archiveBusy = true; archiveSave.disabled = true; refresh.disabled = true; updateSummary();
     selects.forEach(select => { select.disabled = true; });
     archiveSaveStatus.textContent = '大会デッキメモを保存中...';
     try {
@@ -205,7 +234,7 @@ function normalizeMemoMatching(matching) {
       await Promise.all([loadArchives(), openArchive(data.archiveId)]);
     } catch (error) { archiveSaveStatus.textContent = error.message; }
     finally {
-      archiveBusy = false; refresh.disabled = false; selects.forEach(select => {select.disabled = false;}); updateSummary();
+      archiveBusy = false; refresh.disabled = false; selects.forEach(select => {select.disabled = select.dataset.memoReadOnly==='true';}); updateSummary();
     }
   });
   async function applyProvisional(archiveId) {
@@ -218,7 +247,7 @@ function normalizeMemoMatching(matching) {
     document.getElementById('memo-provisional-status').textContent = `仮反映しました：${result.count}人。大会結果ページで同じ大会URLを入力してください。`;
   }
   async function provisionalAction(fromLive) {
-    if(archiveBusy || saving)return;
+    if(archiveBusy || saving || pairingBusy)return;
     archiveBusy=true; updateSummary();
     try {
       let id=openedArchive?.id;
@@ -260,7 +289,7 @@ function normalizeMemoMatching(matching) {
       document.getElementById('memo-archive-info').textContent = error.message;
     } finally {
       archiveBusy = false; refresh.disabled = false; resetArchive.disabled = !openedArchive;
-      selects.forEach(select => { select.disabled = false; }); updateSummary();
+      selects.forEach(select => { select.disabled = select.dataset.memoReadOnly==='true'; }); updateSummary();
     }
   });
   document.getElementById('memo-archives-reload').addEventListener('click', loadArchives);

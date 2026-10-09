@@ -175,4 +175,4 @@ async function fetchTcgMatching(source, fetchImpl = fetch) {
     throw failure('TCGマイスターに接続できませんでした。再取得してください。');
   }
 }
-module.exports={parseTcgUrl,publicSession,latestRound,parseRound,fetchTcgMatching};
+module.exports={parseTcgUrl,publicSession,latestRound,parseRound,fetchTcgMatching,links,parseTableNumber};
