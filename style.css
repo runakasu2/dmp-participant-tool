@@ -719,3 +719,6 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 .matching-player-detail > span { display: block; font-size: .75rem; overflow-wrap: anywhere; }
 
 .matching-player-detail > summary { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 44px; padding: 0; cursor: pointer; color: var(--accent-hover); }
+
+#matching-tcg-settings label { display: block; margin: 8px 0; }
+#matching-tcg-settings input[type=checkbox] { width: auto; margin-right: 8px; }

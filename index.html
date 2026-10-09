@@ -746,6 +746,14 @@
         <label for="memo-round">表示ラウンド</label><select id="memo-round" disabled><option>最新ラウンド</option></select>
         <button id="matching-save" disabled>全ラウンドの対戦表を保存・更新</button>
       </div>
+      <details id="matching-tcg-settings" hidden>
+        <summary>TCG予選の大会条件（確認できた項目のみ設定）</summary>
+        <label for="matching-tcg-rounds">予選の総回戦数</label>
+        <input id="matching-tcg-rounds" type="number" min="1" max="32" placeholder="未確認：公開済み予選回戦のみ取得">
+        <label><input id="matching-tcg-zero" type="checkbox"> この大会は1回戦の開始得点が0点と確認済み</label>
+        <label><input id="matching-tcg-double-loss" type="checkbox"> この大会の有効な対戦で0/0は両者敗北と確認済み</label>
+        <p class="hint">未設定なら得点を補完せず、0/0は未判定。総回戦数が未確認の場合、最後に公開された回戦を最終回戦と推測しません。決勝トーナメントは取得対象外です。</p>
+      </details>
       <p id="matching-status" role="status"></p>
       <button id="memo-provisional-apply" disabled>保存済みメモを大会結果へ仮反映</button>
       <p id="memo-provisional-status" role="status"></p>

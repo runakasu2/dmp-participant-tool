@@ -32,10 +32,10 @@ function normalizeSugatool(event,entries,matches){
   if(!UUID.test(entry.entryId)||entry.eventId&&entry.eventId!==event.eventId||typeof entry.playerName!=='string'||!entry.playerName.trim())throw fail('スガツールの受付済み参加者データが不正です。');
   if(seen.has(entry.entryId))continue;seen.add(entry.entryId);
   const dmpId=String(entry.duemaId??'');
-  if(!/^\d{1,50}$/.test(dmpId)||/^0+$/.test(dmpId))throw fail('スガツールの受付済み参加者に有効なduemaIdがありません。参加者情報を確認してください。');
-  if(dmpIds.has(dmpId))throw fail('スガツールの受付済み参加者でDMP IDが重複しています。');dmpIds.add(dmpId);
+  const validDmp=/^\d{1,50}$/.test(dmpId)&&!/^0+$/.test(dmpId);
+  if(validDmp&&dmpIds.has(dmpId))throw fail('スガツールの受付済み参加者でDMP IDが重複しています。');if(validDmp)dmpIds.add(dmpId);
   const seat=seats.get(entry.entryId);
-  participants.push({participantKey:entry.entryId,entryId:entry.entryId,dmpId,name:entry.playerName.trim(),entryNo:entry.entryNo??null,
+  participants.push({participantKey:entry.entryId,entryId:entry.entryId,dmpId:validDmp?dmpId:null,name:entry.playerName.trim(),entryNo:entry.entryNo??null,
    table:seat?.table??null,side:seat?.side??null,bye:seat?.bye??false,dropped:entry.dropped===true,round});
  }
  participants.sort((a,b)=>(a.table??Infinity)-(b.table??Infinity)||(a.side??0)-(b.side??0)||String(a.entryNo??'').localeCompare(String(b.entryNo??''),'en',{numeric:true})||a.entryId.localeCompare(b.entryId));

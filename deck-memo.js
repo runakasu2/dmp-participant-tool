@@ -1,6 +1,7 @@
 const {parseSugatoolUrl,fetchSugatool} = require('./matching-providers/sugatool');
 const {parseTcgUrl} = require('./matching-providers/tcg-meister');
 const {loadTcgMemo, updateTcgMemo} = require('./deck-memo-tcg');
+const {updateExternalMemo}=require('./deck-memo-external');
 // Verified against the public nojigikucs.com application bundle (2026-09-28).
 // Never derive this destination from user input; never follow redirects.
 const API_BASE = 'https://axirq5jhn9.execute-api.ap-northeast-1.amazonaws.com/v1/';
@@ -133,7 +134,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
           ON CONFLICT (source, admin_key, event_record_id) DO UPDATE SET
             source_url = EXCLUDED.source_url, updated_at = CURRENT_TIMESTAMP RETURNING id
         `, [adminKey, sourceUrl, linked.rows[0].id,source.provider]);
-        if (rosterParticipants.length) {
+        if (rosterParticipants.some(p=>p.dmpId)) {
           await pool.query(`
             INSERT INTO deck_memo_roster (memo_event_id, dmp_id, handle_name, entry_no, table_no, round)
             SELECT $1::integer, x.id, x.name, x.entry, x.table_no, COALESCE(x.round,$3::integer)
@@ -141,7 +142,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
             ON CONFLICT (memo_event_id, dmp_id) DO UPDATE SET
               handle_name = EXCLUDED.handle_name, entry_no = EXCLUDED.entry_no,
               table_no = EXCLUDED.table_no, round = EXCLUDED.round
-          `, [event.rows[0].id, JSON.stringify(rosterParticipants.map(p => ({id:p.dmpId, name:p.name,
+          `, [event.rows[0].id, JSON.stringify(rosterParticipants.filter(p=>p.dmpId).map(p => ({id:p.dmpId, name:p.name,
             entry:p.entryNo == null ? null : String(p.entryNo), table_no:p.table,round:p.round??matching.latestRound}))), matching.latestRound]);
         }
       } else {
@@ -151,16 +152,19 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
             source_url = EXCLUDED.source_url, updated_at = CURRENT_TIMESTAMP RETURNING id
         `, [adminKey, sourceUrl,source.provider]);
       }
+      const externalParticipants=source.provider==='sugatool'?matching.participants:(allRounds||[]).flatMap(r=>r.participants).filter(p=>p.memoExternal);
+      if(externalParticipants.length)await require('./deck-memo-external').upsertExternalRoster(pool,event.rows[0].id,externalParticipants,source.provider==='sugatool');
+      const external=externalParticipants.length?await pool.query('SELECT p.participant_key,p.deck_id,d.name AS deck_name FROM deck_memo_external_players p LEFT JOIN decks d ON d.id=p.deck_id WHERE p.memo_event_id=$1',[event.rows[0].id]):{rows:[]};
+      const externalByKey=new Map(external.rows.map(p=>[p.participant_key,p]));
       const memos = await pool.query(`
         SELECT m.dmp_id, m.deck_id, d.name AS deck_name FROM deck_memos m
         JOIN decks d ON d.id = m.deck_id WHERE m.memo_event_id = $1
       `, [event.rows[0].id]);
       const byId = new Map(memos.rows.map(memo => [memo.dmp_id, memo]));
-      const participants = matching.participants.map(player => ({...player,
-        deckId: byId.get(player.dmpId)?.deck_id ?? null, deckName: byId.get(player.dmpId)?.deck_name ?? null}));
+      const participants = matching.participants.map(player => {const saved=player.dmpId?byId.get(player.dmpId):externalByKey.get(player.participantKey);return {...player,memoExternal:!player.dmpId&&externalByKey.has(player.participantKey),deckId:saved?.deck_id??null,deckName:saved?.deck_name??null};});
       res.set?.('Cache-Control', 'no-store');
       res.json({success: true, provider: source.provider, event: detail, format:detail?.format || matching.format || null, adminKey, sourceUrl, memoEventId: event.rows[0].id,
-        ...(allRounds?{rounds:allRounds.map(r=>({...r,participants:r.participants.map(p=>({...p,deckId:byId.get(p.dmpId)?.deck_id??null,deckName:byId.get(p.dmpId)?.deck_name??null}))}))}:{}),
+        ...(allRounds?{rounds:allRounds.map(r=>({...r,participants:r.participants.map(p=>{const saved=p.dmpId?byId.get(p.dmpId):externalByKey.get(p.participantKey);return {...p,deckId:saved?.deck_id??null,deckName:saved?.deck_name??null};})}))}:{}),
         latestRound: matching.latestRound, participants, participantCount: participants.length,
         registeredCount: participants.filter(player => player.deckId !== null).length,
         warning: matching.warning || (users.failed ? '参加者名一覧を取得できなかったため、対戦表の名前を表示しています。' : null)});
@@ -174,7 +178,8 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
     let client, active = false, releaseError;
     try {
       const source = detectProvider(req.body?.url);
-      if (source.provider === 'tcg_meister') return res.json(await updateTcgMemo(pool, source, req.body));
+      if (source.provider === 'tcg_meister')return res.json(await updateTcgMemo(pool, source, req.body));
+      if(!req.body?.dmpId&&req.body?.participantKey)return res.json(await updateExternalMemo(pool,source,req.body));
       const {adminKey} = source;
       const {dmpId, deckId, memoEventId} = req.body || {};
       if (memoEventId !== undefined && (!Number.isInteger(memoEventId) || memoEventId <= 0 || memoEventId > 2147483647)) throw fail('メモ大会IDが不正です。');

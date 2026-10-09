@@ -160,3 +160,16 @@ test('explicit double-loss rule resolves valid 0/0 without fabricating a winner,
  i.rounds[0].rows[0].opponentInternalId='99';assert.equal(restore(options).matches[0].status,'unresolved');
  assert.throws(()=>restore({...i,zeroGainOutcome:'draw'}),{status:400});
 });
+test('archive fetch discovers published qualifying rounds, never assumes last round, initial zero or double loss',async()=>{
+ const m=mock();const r=await fetchAll('https://tcg.sfc-jpn.jp/loginnum.asp?tid='+tid,{fetchImpl:m.fetchImpl,allowUnfinished:true});
+ assert.deepEqual(r.publishedRounds,[1,2]);assert.equal(r.verifiedFinalRound,null);assert.equal(r.initialScore,null);assert.equal(r.zeroGainOutcome,null);
+ assert.equal(r.matches[0].status,'confirmed');assert.equal(r.matches[1].status,'unresolved');assert.ok(r.matches[1].reasons.includes('missing_next_round'));
+ assert.ok(!m.calls.some(c=>new URL(c.url).searchParams.get('kno')==='9999999'));
+ await assert.rejects(fetchAll('https://tcg.sfc-jpn.jp/loginnum.asp?tid='+tid,{fetchImpl:mock().fetchImpl,finalRound:1,allowUnfinished:true}),/公開回戦/);
+});
+test('explicit archive conditions use standings while unpublished standings keep last round unresolved',async()=>{
+ const m=mock();const fetchImpl=async(u,o)=>{const r=await m.fetchImpl(u,o);if(new URL(u).pathname==='/tour.asp')return new Response((await r.text()).replace(/<a[^>]*kno=9999999[^>]*>.*?<\/a>/,''));return r;};
+ const r=await fetchAll('https://tcg.sfc-jpn.jp/loginnum.asp?tid='+tid,{fetchImpl,finalRound:2,allowUnfinished:true});assert.equal(r.matches.at(-1).status,'unresolved');assert.ok(r.matches.at(-1).reasons.includes('missing_standings'));
+});
+
+test('recognized empty unpublished TCG rounds return no observations in archive mode, while strict and malformed pages still fail',async()=>{const r=await fetchAll('https://tcg.sfc-jpn.jp/loginnum.asp?tid='+tid,{fetchImpl:mock({empty:true}).fetchImpl,allowUnfinished:true});assert.deepEqual(r.rounds,[]);assert.deepEqual(r.matches,[]);});

@@ -119,11 +119,11 @@ function restoreQualifyingResults({tid,rounds,standings,finalRound,initialScore=
   });
   return {provider:'tcg_meister',phase:'qualifying',tid,finalRound,initialScore,zeroGainOutcome,rounds,standings,matches,diagnostics,roundSummaries};
 }
-async function fetchTcgQualifyingResults(value,{fetchImpl=fetch,finalRound,initialScore=null,zeroGainOutcome=null,maxPages=50,maxTotalPages=250}={}) {
+async function fetchTcgQualifyingResults(value,{fetchImpl=fetch,finalRound=null,initialScore=null,zeroGainOutcome=null,maxPages=50,maxTotalPages=250,allowUnfinished=false}={}) {
   if(zeroGainOutcome!==null&&zeroGainOutcome!=='double_loss')throw fail('0/0の判定設定が不正です。',400);
   if(initialScore!==null&&initialScore!==0)throw fail('初期得点補完には initialScore: 0 を明示してください。',400);
   const source=typeof value==='string'?parseTcgUrl(value):parseTcgUrl(value.sourceUrl);
-  if(!Number.isInteger(finalRound)||finalRound<1||finalRound>32||!Number.isInteger(maxPages)||maxPages<1||maxPages>50||!Number.isInteger(maxTotalPages)||maxTotalPages<1||maxTotalPages>250)throw fail('予選回戦数・取得上限が不正です。',400);
+  if((finalRound!==null&&(!Number.isInteger(finalRound)||finalRound<1||finalRound>32))||!Number.isInteger(maxPages)||maxPages<1||maxPages>50||!Number.isInteger(maxTotalPages)||maxTotalPages<1||maxTotalPages>250)throw fail('予選回戦数・取得上限が不正です。',400);
   try {
     // Retain the existing 60-second session deadline, 4MiB/page and redirect allowlist.
     const request=publicSession(fetchImpl,source.tid);
@@ -136,29 +136,41 @@ async function fetchTcgQualifyingResults(value,{fetchImpl=fetch,finalRound,initi
     const tour=await request('/tour.asp?'+new URLSearchParams({tid:source.tid}));
     if(cheerio.load(tour.html)('form[action="tour.asp"] input[name="tid"]').val()!==source.tid)throw fail('公開回戦一覧を取得できません。');
     const discovered=links(tour.html,source.tid);let total=0;
+    const published=[...new Set(discovered.filter(u=>(u.searchParams.get('znt')==='0'||u.searchParams.get('znt')===null)&&/^[1-9]\d*$/.test(u.searchParams.get('kno')||'')).map(u=>Number(u.searchParams.get('kno'))))].sort((a,b)=>a-b);
+    if(!published.length||published.some(n=>n>32)||published.some((n,i)=>n!==i+1))throw fail('予選の公開回戦を連続した範囲として確認できません。');
+    if(finalRound!==null&&published.at(-1)>finalRound)throw fail('公開回戦が指定した予選回戦数を超えています。大会条件を確認してください。',400);
+    const targetRounds=finalRound===null||allowUnfinished?published:Array.from({length:finalRound},(_,i)=>i+1);
+    const verifiedFinalRound=finalRound;
+    // Latest published round is not evidence that the qualifying tournament has ended.
+    const inferenceFinalRound=finalRound??Math.min(32,published.at(-1)+1);
     async function pages(kno,parser) {
       const link=discovered.find(u=>u.searchParams.get('kno')===String(kno)&&(u.searchParams.get('znt')===null||u.searchParams.get('znt')===(kno===9999999?'1':'0')));
       if(!link)throw fail('予選ラウンド／成績表のリンクがありません：'+kno);
-      const pending=new Set([1]),done=new Set(),rows=[];
+      const pending=new Set([1]),done=new Set(),rows=[];let emptyPage=false;
       while(pending.size){const page=Math.min(...pending);pending.delete(page);done.add(page);
         if(++total>maxTotalPages||done.size>maxPages)throw fail('取得ページ数が上限を超えました。');
         const url=new URL(link);url.searchParams.set('Page',String(page));url.searchParams.set('Sort','Table');url.searchParams.set('Order','');
         const result=await request(url.href);
         const destination=new URL(result.url);
+        const phase=destination.searchParams.get('znt');if(phase!==null&&phase!==(kno===9999999?'1':'0'))throw fail('予選以外のページへ移動しました。');
         if(destination.pathname!=='/tourround.asp'||destination.searchParams.get('tid')!==source.tid||destination.searchParams.get('kno')!==String(kno))throw fail('取得ページの大会・回戦が一致しません。');
         const dom=cheerio.load(result.html),form=dom('form[action="tour.asp"]');
         if(form.length){for(const [key,expected]of [['tid',source.tid],['kno',String(kno)]]){const actual=form.find('input[name="'+key+'"]').val();if(actual!=null&&actual!==expected)throw fail('取得ページの大会・回戦が一致しません。');}}
-        rows.push(...parser(result.html));
+        const parsedRows=parser(result.html);if(!parsedRows.length)emptyPage=true;rows.push(...parsedRows);
         const linked=links(result.html,source.tid).filter(u=>u.searchParams.get('kno')===String(kno)).map(u=>u.searchParams.get('Page')).filter(p=>p!==null);
         if(linked.some(p=>!/^\d+$/.test(p)||Number(p)<1||Number(p)>maxPages))throw fail('取得ページ数が上限を超えました。');
         const last=Math.max(page,...linked.map(Number));for(let n=1;n<=last;n++)if(!done.has(n))pending.add(n);
       }
-      if(!rows.length)throw fail('公開ページに解析対象の行がありません。');
+      if(rows.length&&emptyPage)throw fail('ページ間で対戦データが欠落しています。');
+      if(!rows.length&&!allowUnfinished)throw fail('公開ページに解析対象の行がありません。');
       return rows;
     }
-    const rounds=[];for(let round=1;round<=finalRound;round++)rounds.push({round,rows:await pages(round,html=>parseQualifyingRound(html,source.tid,round))});
-    const standings=await pages(9999999,html=>parseQualifyingStandings(html,source.tid));
-    return restoreQualifyingResults({tid:source.tid,rounds,standings,finalRound,initialScore,zeroGainOutcome});
+    const rounds=[];for(const round of targetRounds){const rows=await pages(round,html=>parseQualifyingRound(html,source.tid,round));if(rows.length)rounds.push({round,rows});}
+    const hasStandings=discovered.some(u=>u.searchParams.get('kno')==='9999999'&&(u.searchParams.get('znt')==='1'||u.searchParams.get('znt')===null));
+    const standings=verifiedFinalRound!==null&&hasStandings?await pages(9999999,html=>parseQualifyingStandings(html,source.tid)):[];
+    if(!allowUnfinished&&verifiedFinalRound!==null&&!hasStandings)throw fail('予選成績表のリンクがありません。');
+    const result=restoreQualifyingResults({tid:source.tid,rounds,standings,finalRound:inferenceFinalRound,initialScore,zeroGainOutcome});
+    return allowUnfinished||verifiedFinalRound===null?{...result,verifiedFinalRound,publishedRounds:published}:result;
   }catch(e){if(e.status)throw e;throw fail(['TimeoutError','AbortError'].includes(e.name)?'全ラウンド取得がタイムアウトしました。':'全ラウンド取得に失敗しました。', ['TimeoutError','AbortError'].includes(e.name)?504:502);}
 }
 module.exports={parseQualifyingRound,parseQualifyingStandings,restoreQualifyingResults,fetchTcgQualifyingResults};

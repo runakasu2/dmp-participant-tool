@@ -33,6 +33,7 @@ function installArchiveRoutes(app, pool) {
         LEFT JOIN deck_memos m ON m.memo_event_id = r.memo_event_id AND m.dmp_id = r.dmp_id
         WHERE r.memo_event_id = $1
       `, [memoEventId]);
+      if(info.source==='sugatool'||info.source==='nojigiku'){const external=await client.query(`SELECT participant_key,NULL::varchar(50) AS dmp_id,handle_name,raw_no AS entry_no,table_no,round,NULL::integer AS player_id,deck_id,internal_participant_id,raw_no,bye,NULL::text AS match_status,NULL::text AS dmp_handle_name FROM deck_memo_external_players WHERE memo_event_id=$1 AND dmp_id IS NULL`,[memoEventId]);roster.rows.push(...external.rows);}
       if (!roster.rows.length) throw error('保存できる参加者がいません。保存済み大会は変更していません。',400);
       const deckIds = [...new Set(roster.rows.map(p => p.deck_id).filter(id => id !== null))].sort((a,b)=>a-b);
       // Merge locks decks before updating archive rows. Use the same order.

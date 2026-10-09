@@ -20,7 +20,7 @@ test('received entries form roster; latest seats, sides, bye and dropped partici
  assert.equal(r.participants[25].table,null);assert.equal(r.participants[25].dropped,true);
  assert.equal(normalizeSugatool({...event,currentRound:null},entries,[]).participants.length,30);
  assert.match(normalizeSugatool(event,[],[]).warning,/0人/);
- assert.throws(()=>normalizeSugatool(event,[{...entries[0],duemaId:null}],[]),/duemaId/);
+ const missing=normalizeSugatool(event,[{...entries[0],duemaId:null}],[]).participants[0];assert.equal(missing.dmpId,null);assert.equal(missing.participantKey,entries[0].entryId);
 });
 test('uses currentRound with fixed public endpoints and distinguishes failures',async()=>{
  const source=parseSugatoolUrl('https://sugatool.nojigikucs.com/events/'+id+'/matches');const calls=[];

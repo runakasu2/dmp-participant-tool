@@ -61,13 +61,17 @@ if(require.main===module)test('PostgreSQL pairing lifecycle: complete keys, dedu
   state.offline=false;state.rows=[row(1,1)];f.detail.held='3';const other=await call('POST','/api/deck-memo/matching',{url:source,detailUrl:'fixture'});assert.equal(other.code,200);assert.notEqual(other.body.memoEventId,memoId);
   const second=await save({...key,seq:'3'});assert.equal(second.code,200);assert.notEqual(second.body.archiveId,id);
   assert.equal((await call('GET','/api/matching-archives/:id',{}, {id:second.body.archiveId})).body.participants[0].deckId,null);
+  // Nojigiku without a DMP ID uses a scoped internal entry number, never a fabricated DMP ID.
+  f.detail.held='4';state.rows=[{...row(1,1),user1id:0}];const missingId=await call('POST','/api/deck-memo/matching',{url:source,detailUrl:'fixture'});assert.equal(missingId.code,200);
+  assert.equal((await call('PUT','/api/deck-memo',{url:source,memoEventId:missingId.body.memoEventId,participantKey:'entry:8',deckId:1})).code,200);
+  const missingSaved=await save({...key,seq:'4'});assert.equal(missingSaved.code,200);assert.equal((await call('GET','/api/matching-archives/:id',{}, {id:missingSaved.body.archiveId})).body.participants.find(p=>p.participantKey==='entry:8').deckId,1);
   const tables=['events','players','deck_memo_events','deck_memos','deck_history','event_results','deck_memo_roster','deck_memo_archives','deck_memo_archive_players'];
   const before=await Promise.all(tables.map(t=>db.query('SELECT * FROM '+t+' ORDER BY 1').then(r=>r.rows)));
   const remove=body=>call('POST','/api/matching-archives/:id/delete',body,{id});
   assert.equal((await remove({...key,confirmed:false})).code,400);assert.equal((await remove({...key,seq:'3',confirmed:true})).code,409);
   assert.equal((await remove({...key,confirmed:true})).code,200);assert.equal((await read()).code,404);
   assert.equal((await db.query('SELECT COUNT(*)::int n FROM matching_archive_matches WHERE archive_id=$1',[id])).rows[0].n,0);
-  assert.equal((await call('GET','/api/matching-archives')).body.archives.length,1);
+  assert.equal((await call('GET','/api/matching-archives')).body.archives.length,2);
   assert.deepEqual(await Promise.all(tables.map(t=>db.query('SELECT * FROM '+t+' ORDER BY 1').then(r=>r.rows))),before);
  }finally{await db.close();}
 });

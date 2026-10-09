@@ -1,6 +1,5 @@
 const {fetchTcgMatching} = require('./matching-providers/tcg-meister');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
-const validId=id=>Number.isInteger(id)&&id>0&&id<=2147483647;
 
 function participant(row, source) {
   return {provider:'tcg_meister',tid:source.tid,participantKey:row.participant_key,
@@ -48,28 +47,5 @@ async function loadTcgMemo({source,detail,pool,fetchImpl}) {
     throw err;
   } finally {client?.release(releaseError);}
 }
-async function updateTcgMemo(pool,source,body) {
-  const {memoEventId,participantKey,deckId}=body;
-  if(!validId(memoEventId)||typeof participantKey!=='string'||!participantKey||participantKey.length>200) throw fail('大会・参加者の指定が不正です。');
-  if(!(deckId===null||validId(deckId))) throw fail('選択内容が不正です。');
-  let client,active=false,releaseError;
-  try {
-    client=await pool.connect();await client.query('BEGIN');active=true;
-    let deck=null;
-    if(deckId!==null) {
-      deck=(await client.query('SELECT id,name FROM decks WHERE id=$1 FOR KEY SHARE',[deckId])).rows[0];
-      if(!deck) throw fail('デッキが見つかりません。一覧を再取得してください。',404);
-    }
-    const event=await client.query(`SELECT id FROM deck_memo_events WHERE id=$1 AND source='tcg_meister' AND admin_key=$2 FOR UPDATE`,[memoEventId,source.tid]);
-    if(!event.rows.length) throw fail('メモ大会が見つかりません。',404);
-    const result=await client.query(`UPDATE deck_memo_external_players SET deck_id=$3,updated_at=CURRENT_TIMESTAMP
-      WHERE memo_event_id=$1 AND participant_key=$2 RETURNING participant_key`,[memoEventId,participantKey,deckId]);
-    if(!result.rows.length) throw fail('参加者が見つかりません。再取得してください。',404);
-    await client.query('COMMIT');active=false;
-    return {success:true,deckId:deck?.id??null,deckName:deck?.name??null};
-  } catch(err) {
-    if(active) try {await client.query('ROLLBACK');} catch(e) {releaseError=e;}
-    throw err;
-  } finally {client?.release(releaseError);}
-}
+async function updateTcgMemo(pool,source,body){return require('./deck-memo-external').updateExternalMemo(pool,source,body);}
 module.exports={loadTcgMemo,updateTcgMemo};

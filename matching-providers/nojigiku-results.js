@@ -18,7 +18,7 @@ function normalizeNojigikuMatches(matches,users=[]) {
     }
     players.sort((a,b)=>a.side-b.side);
     if(!players.length)throw fail('選手のいない対戦表は保存できません。');
-    const sides=players.map(p=>({...p,participantKey:p.dmpId?'dmp:'+p.dmpId:p.entryNo!=null?'entry:'+p.entryNo:'seat:'+key+':'+p.side,round:Number(raw.round)}));
+    const sides=players.map(p=>({...p,participantKey:p.dmpId?'dmp:'+p.dmpId:p.entryNo!=null?'entry:'+p.entryNo:'seat:'+key+':'+p.side,round:Number(raw.round),memoExternal:!p.dmpId&&p.entryNo!=null,internalParticipantId:!p.dmpId&&p.entryNo!=null?String(p.entryNo):null}));
     const winner=raw.winner==null?null:String(raw.winner);
     let outcome='unresolved',winnerKey=null,reason='winner_unknown';
     if(sides.length===1){const absent=3-sides[0].side;const isBye=/^Bye\s*[（(]不戦勝[）)]$/i.test(String(raw['user'+absent]||'').trim());outcome=isBye?'bye':'unresolved';reason=isBye?'explicit_bye':'missing_opponent';}

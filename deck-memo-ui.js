@@ -55,8 +55,9 @@ function normalizeMemoMatching(matching) {
     document.dispatchEvent(new Event('matching-archives-refresh'));
   });
   const updateSummary = () => {
+    document.getElementById('matching-tcg-settings').hidden=current?.provider!=='tcg_meister';
     roundSelect.disabled = !current?.rounds?.length || saving > 0 || archiveBusy || pairingBusy;
-    document.getElementById('matching-save').disabled = !current?.event || current.provider!=='nojigiku' || saving > 0 || archiveBusy || pairingBusy;
+    document.getElementById('matching-save').disabled = !current?.event || !['nojigiku','tcg_meister','sugatool'].includes(current.provider) || saving > 0 || archiveBusy || pairingBusy;
     document.dispatchEvent(new Event('matching-context-change'));
     document.getElementById('memo-provisional-apply').disabled = !current?.event || !current.participants.length || (current.saved&&!current.memoEventId) || saving > 0 || archiveBusy || pairingBusy;
     archiveSave.disabled = !current?.event || !current.participants.length || (current.saved&&!current.memoEventId) || saving > 0 || archiveBusy || pairingBusy;
@@ -94,10 +95,10 @@ function normalizeMemoMatching(matching) {
       for (const value of values) {
         const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
       }
-      if(player.opponentName){row.title='対戦相手：'+player.opponentName;const detail=document.createElement('details');detail.className='matching-player-detail';const label=document.createElement('summary');label.textContent=player.name;const text=document.createElement('span');text.textContent='プレイヤー：'+player.name+' ／ 対戦相手：'+player.opponentName+' ／ '+(player.outcome==='win_loss'?(player.winnerKey===player.participantKey?'勝ち':'負け'):player.outcome==='bye'?'不戦勝表記／相手なし':'勝敗未判定');detail.append(label,text);row.cells[tcg?1:2].replaceChildren(detail);}
+      if(player.opponentName){row.title='対戦相手：'+player.opponentName;const detail=document.createElement('details');detail.className='matching-player-detail';const label=document.createElement('summary');label.textContent=player.name;const text=document.createElement('span');text.textContent='プレイヤー：'+player.name+' ／ 対戦相手：'+player.opponentName+' ／ '+(player.outcome==='win_loss'?(player.winnerKey===player.participantKey?'勝ち':'負け'):player.outcome==='double_loss'?'両者敗北':player.outcome==='bye'?'不戦勝表記／相手なし':'勝敗未判定');detail.append(label,text);row.cells[tcg?1:2].replaceChildren(detail);}
       const cell = document.createElement('td');
       const select = createDeckSelect(decks, {format:current.event?.format || current.format, deckId:player.deckId, deckName:player.deckName, label:player.name + 'の使用デッキ'});
-      select.disabled=pairingBusy || (!tcg&&!player.dmpId) || (loaded.saved && !loaded.memoEventId);
+      select.disabled=pairingBusy || ((!tcg||loaded.saved)&&!player.dmpId&&!player.memoExternal) || (loaded.saved && !loaded.memoEventId);
       select.dataset.memoReadOnly=String(select.disabled&&!pairingBusy);
       selects.push(select);
       const saved = document.createElement('small'); saved.setAttribute('role', 'status');
@@ -113,7 +114,7 @@ function normalizeMemoMatching(matching) {
         select.disabled = true; saving++; refresh.disabled = true; archiveSave.disabled = true; updateSummary(); showSaveStatus('保存中...', 'saving');
         try {
           const data = await getJson('/api/deck-memo', {method: 'PUT', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({url: loaded.sourceUrl, memoEventId: loaded.memoEventId, ...(tcg ? {} : {dmpId: player.dmpId}), participantKey: player.participantKey, deckId: select.value ? Number(select.value) : null})});
+            body: JSON.stringify({url: loaded.sourceUrl, memoEventId: loaded.memoEventId, ...(player.dmpId ? {dmpId: player.dmpId} : {}), participantKey: player.participantKey, deckId: select.value ? Number(select.value) : null})});
           player.deckId = data.deckId; player.deckName = data.deckName;
           for(const p of [...loaded.participants,...(loaded.rounds||[]).flatMap(r=>r.participants)])if(tcg||!player.dmpId?p.participantKey===player.participantKey:p.dmpId===player.dmpId){p.deckId=data.deckId;p.deckName=data.deckName;}
           showSaveStatus(data.deckId === null ? '解除しました' : '保存しました', data.deckId === null ? 'empty' : 'saved');
@@ -130,7 +131,7 @@ function normalizeMemoMatching(matching) {
   async function load() {
     if (refresh.disabled || saving || archiveBusy || pairingBusy) return;
     refresh.disabled = true; input.disabled = true; dmpInput.disabled = true; archiveSaveStatus.textContent = '';
-    list.replaceChildren(); current = null;displayRound=null;updateRoundOptions(); updateSummary();
+    list.replaceChildren(); current = null;displayRound=null;setTcgSettings();updateRoundOptions(); updateSummary();
     status.textContent = '最新の対戦表を取得中...';
     try {
       const [matching, decks] = await Promise.all([
@@ -153,16 +154,17 @@ function normalizeMemoMatching(matching) {
     } catch (error) { status.textContent = error.message; }
     finally { refresh.disabled = false; input.disabled = false; dmpInput.disabled = false; }
   }
+  function setTcgSettings(settings={}){settings=settings||{};document.getElementById('matching-tcg-rounds').value=settings.finalRound??'';document.getElementById('matching-tcg-zero').checked=settings.initialScore===0;document.getElementById('matching-tcg-double-loss').checked=settings.zeroGainOutcome==='double_loss';}
   function updateRoundOptions(){
     roundSelect.replaceChildren();
     for(const round of current?.rounds||[{round:current?.latestRound}]){const option=document.createElement('option');option.value=String(round.round??'');option.textContent=round.round?'Round '+round.round+(round.round===current?.latestRound?'（最新）':''):'最新ラウンド';roundSelect.append(option);}
     roundSelect.value=String(displayRound??'');
   }
   roundSelect.addEventListener('change',()=>{if(saving||archiveBusy||pairingBusy){roundSelect.value=String(displayRound??'');return;}displayRound=Number(roundSelect.value);render(deckCatalog);});
-  if(typeof window!=='undefined')window.getMemoMatchingContext=()=>current?{provider:current.provider,url:current.sourceUrl,shopId:current.event?.shopId,eventId:current.event?.eventId,seq:current.event?.held??current.event?.seq,archiveId:current.archiveId,busy:saving>0||archiveBusy||refresh.disabled}:null;
+  if(typeof window!=='undefined')window.getMemoMatchingContext=()=>current?{provider:current.provider,url:current.sourceUrl,shopId:current.event?.shopId,eventId:current.event?.eventId,seq:current.event?.held??current.event?.seq,archiveId:current.archiveId,displayRound,busy:saving>0||archiveBusy||refresh.disabled}:null;
   document.addEventListener('memo-open-matching-archive',event=>{
     if(saving||archiveBusy||refresh.disabled)return;
-    current=event.detail.matching;deckCatalog=event.detail.decks;displayRound=current.latestRound;
+    current=event.detail.matching;deckCatalog=event.detail.decks;displayRound=current.rounds.some(r=>r.round===event.detail.displayRound)?event.detail.displayRound:current.latestRound;setTcgSettings(current.tcgSettings);
     input.value=current.sourceUrl;dmpInput.value='https://www.dmp-ranking.com/event.asp?'+new URLSearchParams({ShopID:current.event.shopId,EventID:current.event.eventId,Seq:current.event.held});
     updateRoundOptions();render(deckCatalog);status.textContent='保存済み対戦表を表示しています。'+(!current.memoEventId?' 元のデッキメモがないため、デッキは参照のみです。':'');
   });
