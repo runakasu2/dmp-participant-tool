@@ -67,7 +67,17 @@ function latestMatching(matches, users = []) {
       // Nojigiku represents the absent opponent of a bye with -1 (not a player ID).
       if (id === '-1' && String(match['user' + side + 'no']) === '-1' &&
           /^Bye\s*[（(]不戦勝[）)]$/i.test(String(match['user' + side] || '').trim())) continue;
-      if (!/^\d{1,50}$/.test(id)) throw fail('nojigikuの対戦表に不正な参加者DMP IDが含まれています。URLのadminではなく、取得データを確認してください。', 502);
+      if (!/^\d{1,50}$/.test(id)) {
+  console.error('Invalid nojigiku DMP ID:', {
+    id,
+    round: match.round,
+    table: match.table,
+    side,
+    entryNo: match['user' + side + 'no'],
+    name: match['user' + side]
+  });
+  throw fail('nojigikuの対戦表に不正な参加者DMP IDが含まれています。URLのadminではなく、取得データを確認してください。', 502);
+}
       if (seen.has(id)) throw fail('最新ラウンドに同じDMP IDが重複しています。', 502);
       seen.add(id);
       const fallback = String(match['user' + side] || '').replace(/\s*[（(]\s*\d+\s*点\s*[）)]\s*$/, '').trim();
