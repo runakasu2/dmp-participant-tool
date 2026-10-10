@@ -10,10 +10,11 @@ const {fixture}=require('./matching-archives-postgres.integration'),{seed}=requi
   await page.goto('http://127.0.0.1:'+server.address().port);
   async function ready(){await page.waitForFunction(()=>!document.querySelector('#wr-results').hidden&&document.querySelector('#wr-status').textContent.includes('集計しました'));}
   async function open(width){if(width<=720)await page.locator('#menu-more').click();await page.locator('#menu-winrate').click();await ready();}
+  async function checkMatrixOrder(){const names=await page.locator('#wr-decks tr th').allTextContents();assert.deepEqual(await page.locator('#wr-matrix-body tr > th').allTextContents(),names);assert.deepEqual((await page.locator('#wr-matrix-head th').allTextContents()).slice(1),names);}
   for(const width of [375,390,430,768,1440]){
    await page.setViewportSize({width,height:900});await open(width);
    assert.equal(await page.locator('#current-page-label').textContent(),'勝率分析');assert.equal(await page.locator('#wr-decks tr').count(),2);assert.equal(await page.locator('#wr-counts strong').nth(1).textContent(),'6');
-   await page.locator('#wr-sort').selectOption('name');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'A');await page.locator('#wr-sort').selectOption('rate');await page.locator('#wr-sort').selectOption('matches');
+   await page.locator('#wr-sort').selectOption('name');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'A');await checkMatrixOrder();await page.locator('#wr-sort').selectOption('rate');await checkMatrixOrder();await page.locator('#wr-sort').selectOption('matches');await checkMatrixOrder();
    await page.locator('#wr-matrix-body button[data-deck-id="1"][data-opponent-id="2"]').click();await page.waitForFunction(()=>document.querySelector('#wr-detail-status').textContent.includes('6試合'));assert.equal(await page.locator('#wr-detail-matches article').count(),6);
    await page.locator('#wr-detail-close').click();
    await page.locator('#wr-mode').selectOption('single');if(width===375)await page.waitForFunction(()=>document.querySelector('#wr-status').textContent==='大会を選択してください。');await page.locator('#wr-event').selectOption('2');await ready();assert.equal(await page.locator('#wr-counts strong').nth(1).textContent(),'2');
@@ -32,7 +33,7 @@ const {fixture}=require('./matching-archives-postgres.integration'),{seed}=requi
   await f.db.exec("UPDATE deck_memo_external_players SET deck_id=3 WHERE memo_event_id=2 AND participant_key='id:39';");
   await page.locator('#wr-detail-close').click();await page.locator('#wr-matrix-body button[data-deck-id="1"][data-opponent-id="2"]').click();await page.waitForFunction(()=>document.querySelector('#wr-status').textContent.includes('データ更新を検出'));assert.equal(await page.locator('#wr-decks tr').count(),3);
   await f.db.exec("UPDATE decks SET name='Z' WHERE id=1; UPDATE matching_archive_matches SET winner_key='11111111-1111-1111-1111-111111111111' WHERE archive_id=3 AND round=2;");
-  await page.locator('#wr-reload').click();await ready();await page.locator('#wr-sort').selectOption('name');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'B');await page.locator('#wr-sort').selectOption('rate');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'Z');await page.locator('#wr-sort').selectOption('matches');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'B');
+  await page.locator('#wr-reload').click();await ready();await page.locator('#wr-sort').selectOption('name');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'B');await checkMatrixOrder();await page.locator('#wr-sort').selectOption('rate');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'Z');await checkMatrixOrder();await page.locator('#wr-sort').selectOption('matches');assert.equal(await page.locator('#wr-decks tr').first().locator('th').textContent(),'B');await checkMatrixOrder();
   await page.locator('.wr-exclusions summary').click();assert.ok((await page.locator('#wr-exclusions').textContent()).includes('対面対象'));
   await page.screenshot({path:'/tmp/winrate-detail-1440.png',fullPage:true});
   // Matrix axes are paged; long names must stay inside its scroll container.
