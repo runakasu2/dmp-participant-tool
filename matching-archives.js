@@ -82,7 +82,7 @@ function installMatchingArchiveRoutes(app,pool,fetchImpl=fetch){
     finally{client?.release(releaseError);}
   });
   app.get('/api/matching-archives',async(req,res)=>{
-    try{const records=await pool.query(`SELECT a.id,a.provider,a.source_key,e.event_name,e.event_date::text AS event_date,e.shop_id,e.event_id,e.seq,
+    try{const records=await pool.query(`SELECT a.id,a.provider,a.source_key,e.event_name,e.event_date::text AS event_date,e.shop_id,e.event_id,e.seq,e.format,
       COUNT(DISTINCT m.round)::int AS round_count,COUNT(m.match_key)::int AS match_count,a.updated_at
       FROM matching_archives a JOIN events e ON e.id=a.event_record_id LEFT JOIN matching_archive_matches m ON m.archive_id=a.id
       GROUP BY a.id,e.id ORDER BY e.event_date DESC NULLS LAST,a.id DESC`);res.json({success:true,archives:records.rows});}

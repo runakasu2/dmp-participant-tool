@@ -17,11 +17,11 @@ const {fixture}=require('./matching-archives-postgres.integration'),{seed}=requi
    await page.locator('#wr-matrix-body button[data-deck-id="1"][data-opponent-id="2"]').click();await page.waitForFunction(()=>document.querySelector('#wr-detail-status').textContent.includes('6試合'));assert.equal(await page.locator('#wr-detail-matches article').count(),6);
    await page.locator('#wr-detail-close').click();
    await page.locator('#wr-mode').selectOption('single');if(width===375)await page.waitForFunction(()=>document.querySelector('#wr-status').textContent==='大会を選択してください。');await page.locator('#wr-event').selectOption('2');await ready();assert.equal(await page.locator('#wr-counts strong').nth(1).textContent(),'2');
-   await page.locator('#wr-format').selectOption('advance');await ready();await page.locator('#wr-provider').selectOption('tcg_meister');await ready();
+   await page.locator('#wr-format').selectOption('advance');await ready();
    await page.locator('#wr-start').fill('2026-10-02');await page.locator('#wr-end').fill('2026-10-02');await ready();
    await page.screenshot({path:'/tmp/winrate-'+width+'.png',fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow '+width);
    await page.locator('#wr-format').selectOption('original');await page.waitForFunction(()=>document.querySelector('#wr-status').textContent.includes('ありません'));assert.equal(await page.locator('#wr-decks').textContent(),'デッキが登録された記録はありません。');
-   await page.locator('#wr-format').selectOption('');await page.locator('#wr-provider').selectOption('');await page.locator('#wr-start').fill('');await page.locator('#wr-end').fill('');await page.locator('#wr-mode').selectOption('all');await ready();
+   await page.locator('#wr-format').selectOption('');await page.locator('#wr-start').fill('');await page.locator('#wr-end').fill('');await page.locator('#wr-mode').selectOption('all');await ready();
    await page.locator('#menu-deck-memo').click();assert.equal(await page.locator('#page-winrate').isVisible(),false);console.log('PASS '+width+'px: navigation, filters, sort, matrix/detail, empty, no page overflow');
   }
   // Fresh memo updates through the existing API are reflected at page re-entry.

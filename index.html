@@ -772,7 +772,21 @@
         <h2>保存済み対戦表</h2>
         <p class="hint">元サイトのデータ消去後も参照できます。削除するのは対戦表のみです。</p>
         <button id="matching-reload" type="button">対戦表一覧を更新</button>
+        <button id="matching-delete-open" type="button">保存済み対戦表を削除</button>
         <div id="matching-archive-list"></div>
+        <dialog id="matching-delete-dialog" aria-labelledby="matching-delete-title">
+          <h2 id="matching-delete-title">保存済み対戦表を削除</h2>
+          <p id="matching-delete-status" role="status" aria-live="polite"></p>
+          <div id="matching-delete-choose"><p>削除対象の大会を1件選択してください。選択だけでは削除されません。</p><div id="matching-delete-events"></div></div>
+          <div id="matching-delete-confirm" hidden>
+            <h3 id="matching-delete-event"></h3>
+            <p>この大会の保存済み対戦表を削除します。この操作は取り消せません。</p>
+            <p class="hint">大会結果・参加者情報・デッキメモ・デッキ履歴は保持します。以下で選択したアーカイブ1件だけを削除します。</p>
+            <fieldset id="matching-delete-archives"><legend>実際に削除するアーカイブ</legend></fieldset>
+            <div class="matching-delete-actions"><button id="matching-delete-back" type="button">大会選択に戻る</button><button id="matching-delete-execute" type="button" class="danger-button" disabled>削除する</button></div>
+          </div>
+          <button id="matching-delete-cancel" type="button">キャンセル</button>
+        </dialog>
       </section>
       <section>
         <h2>保存済みデッキメモ</h2>
@@ -804,7 +818,6 @@
         <label>開始日<input id="wr-start" type="date"></label>
         <label>終了日<input id="wr-end" type="date"></label>
         <label>フォーマット<select id="wr-format"><option value="">すべて</option><option value="original">オリジナル</option><option value="advance">アドバンス</option><option value="2block">2ブロック</option><option value="unknown">未登録</option></select></label>
-        <label>提供サイト<select id="wr-provider"><option value="">すべて</option><option value="nojigiku">のじぎく</option><option value="tcg_meister">TCGマイスター</option><option value="sugatool">スガツール</option></select></label>
         <div class="wr-search-controls">
         <label>デッキ検索<select id="wr-search-mode"><option value="all">全体表示</option><option value="deck">デッキ別勝率検索</option><option value="matchup">対面勝率検索</option></select></label>
         <div id="wr-deck-a-field" class="wr-deck-choice" hidden><label for="wr-deck-a-query">デッキA・正式名／別名で絞り込み</label><input id="wr-deck-a-query" type="search" placeholder="デッキ名・別名" autocomplete="off"><label for="wr-deck-a">デッキA（基準）</label><select id="wr-deck-a"><option value="">デッキを選択</option></select><small id="wr-deck-a-hint" role="status"></small></div>

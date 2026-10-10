@@ -777,3 +777,15 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 #wr-search-results h3, #wr-search-results p { overflow-wrap: anywhere; }
 
 @media (max-width: 720px) { .wr-search-controls { grid-template-columns: minmax(0,1fr); } }
+
+/* Archive deletion is a separate, explicit two-step task. */
+#matching-delete-dialog { box-sizing: border-box; }
+#matching-delete-dialog [hidden] { display: none !important; }
+#matching-delete-events { display: grid; gap: 8px; }
+#matching-delete-events button { text-align: left; white-space: normal; overflow-wrap: anywhere; min-height: 44px; }
+#matching-delete-archives { min-width: 0; margin: 14px 0; }
+#matching-delete-archives label { display: flex; align-items: flex-start; gap: 8px; padding: 10px 0; font-size: .875rem; overflow-wrap: anywhere; }
+#matching-delete-archives input { width: 18px; min-height: 18px; flex: 0 0 18px; margin-top: 3px; }
+#matching-delete-event, #matching-delete-status { overflow-wrap: anywhere; }
+.matching-delete-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+@media (max-width: 720px) { #matching-delete-dialog { padding: 16px; } .matching-delete-actions button { flex: 1 1 auto; } }
