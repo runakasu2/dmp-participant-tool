@@ -789,3 +789,18 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 #matching-delete-event, #matching-delete-status { overflow-wrap: anywhere; }
 .matching-delete-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 @media (max-width: 720px) { #matching-delete-dialog { padding: 16px; } .matching-delete-actions button { flex: 1 1 auto; } }
+
+/* Ordered optional tie history, separate from final-hand tendencies. */
+.rps-tie-editor { min-width: 0; margin: 16px 0; border: 1px solid var(--border); border-radius: 10px; }
+.rps-tie-row { display: grid; grid-template-columns: minmax(90px,1fr) minmax(0,2fr) auto; gap: 8px; align-items: center; margin: 8px 0; }
+.rps-tie-row select { width: 100%; min-width: 0; }
+.rps-tie-row label { margin: 0; font-size: .85rem; }
+.rps-tie-row button { min-height: 44px; }
+.rps-tie-stage { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.rps-tie-stage h3, .rps-tie-stage p { margin: 8px 0; overflow-wrap: anywhere; }
+.rps-history-record { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.rps-history-record p { min-width: 0; overflow-wrap: anywhere; font-size: .85rem; }
+.rps-history-record button { flex-shrink: 0; min-height: 44px; }
+#rps-history-pages { display: flex; gap: 10px; align-items: center; }
+#page-rps [hidden] { display: none !important; }
+@media (max-width: 720px) { .rps-tie-row { grid-template-columns: minmax(0,1fr) auto; } .rps-tie-row label { grid-column: 1 / -1; } }

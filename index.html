@@ -611,6 +611,11 @@
     <p id="player-rps-empty" hidden>じゃんけんデータなし</p>
     <div id="player-rps-stats" class="rps-stats"></div>
   </section>
+  <section class="rps-after-ties" aria-labelledby="player-rps-ties-title">
+    <h2 id="player-rps-ties-title">あいこ後の予想</h2>
+    <p class="hint">過去の出現頻度に基づく傾向です。次の手を確実に予測するものではありません。実際にその回まであいこが続いた記録だけを集計します。</p>
+    <div id="player-rps-tie-predictions"></div>
+  </section>
 
   <section>
 
@@ -652,11 +657,15 @@
     <p id="rps-player-hint" class="hint">同名の相手はDMP ID・記録先番号で区別して選んでください。</p>
     <div id="rps-candidates" class="rps-candidates" aria-label="プレイヤー候補"></div>
     <p id="rps-selected" role="status">プレイヤーを検索して選択してください。</p>
-    <label for="rps-hand">じゃんけんの手 <span class="hint">必須</span></label>
+    <label for="rps-hand">最終的に出した手 <span class="hint">必須</span></label>
     <select id="rps-hand" required><option value="">選択してください</option><option value="rock">👊 グー</option><option value="scissors">✌️ チョキ</option><option value="paper">🖐️ パー</option></select>
+    <fieldset class="rps-tie-editor"><legend>あいこの記録（任意）</legend><p class="hint">あいこの手を順番に追加してください。最後の手は上の「最終的に出した手」に記録します。</p><div id="rps-ties"></div><button id="rps-tie-add" type="button">＋ あいこを追加</button></fieldset>
+    <p id="rps-editing" role="status" hidden></p>
+    <button id="rps-edit-cancel" type="button" hidden>編集をやめる</button>
     <div class="rps-actions"><button id="rps-save" type="submit">記録する</button><button id="rps-view-player" type="button" hidden>この相手の傾向を見る</button></div>
     <p id="rps-status" role="status"></p>
   </form>
+  <section><h2>記録の確認・編集</h2><button id="rps-history-load" type="button" disabled>選択した相手の記録を表示</button><p id="rps-history-status" role="status"></p><div id="rps-history-list"></div><div id="rps-history-pages" hidden><button id="rps-history-prev" type="button">前へ</button><span id="rps-history-page"></span><button id="rps-history-next" type="button">次へ</button></div></section>
 </div>
 
 <!-- ============================== -->

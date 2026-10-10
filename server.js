@@ -1,5 +1,5 @@
 const {playerHistorySql, buildDeckInsights} = require(require('node:path').join(__dirname, 'player-insights.js'));
-const {loadRpsSummary, searchGuests, installRpsRoutes} = require(require('node:path').join(__dirname, 'rock-paper-scissors.js'));
+const {loadRpsSummary, loadTiePredictions, searchGuests, installRpsRoutes} = require(require('node:path').join(__dirname, 'rock-paper-scissors.js'));
 const {extractEventFormat}=require(require('node:path').join(__dirname,'event-format.js'));
 const {fetchEventParticipants} = require(require('node:path').join(__dirname, 'dmp-participants.js'));
 const {getDeckCatalog} = require(require("node:path").join(__dirname, "deck-catalog.js"));
@@ -738,6 +738,9 @@ await pool.query(`
 
       await pool.query(require("node:fs").readFileSync(
         require("node:path").join(__dirname, "migrations/013_matching_archives.sql"), "utf8"));
+
+      await pool.query(require("node:fs").readFileSync(
+        require("node:path").join(__dirname, "migrations/014_rps_ties.sql"), "utf8"));
 
       res.json({
         success: true,
@@ -1990,6 +1993,7 @@ app.get(
 
       const insights = buildDeckInsights(history);
       const rpsSummary = await loadRpsSummary(pool, {playerId: player.id});
+      const rpsTiePredictions = await loadTiePredictions(pool, {playerId: player.id});
 
       res.json({
         success: true,
@@ -2007,6 +2011,7 @@ app.get(
 
         ...insights,
         rpsSummary,
+        rpsTiePredictions,
 
         history:
           history

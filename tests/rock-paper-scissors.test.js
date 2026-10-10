@@ -42,7 +42,7 @@ for (const [counts, expected] of [[[0,0,0],[0,0,0]],[[1,0,0],[100,0,0]],[[5,3,2]
 }
 test('API rejects missing/invalid input without acquiring a DB connection', async () => {
   const routes = new Map();
-  installRpsRoutes({post:(path,handler)=>routes.set(path,handler),get(){}}, {connect(){throw Error('must not access DB');}});
+  installRpsRoutes({post:(path,handler)=>routes.set(path,handler),get(){},put(){}}, {connect(){throw Error('must not access DB');}});
   for (const body of [null,{}, {...base,hand:'invalid'}]) {
     const res={status(code){this.code=code;return this;},json(data){this.body=data;}};
     await routes.get('/api/rps/records')({body},res);
@@ -59,4 +59,13 @@ test('failed guest record insert rolls back the new identity and releases connec
   },release(){calls.push('release');}})}, {playerName:'新規',createGuest:true,hand:'rock'}), /insert failed/);
   assert.deepEqual(calls.slice(-2),['ROLLBACK','release']);
   assert.ok(!calls.includes('COMMIT'));
+});
+
+const {summarizeTieTransitions}=require('../rock-paper-scissors');
+test('ordered optional ties validate without mutating source, invalid or empty slots rejected',()=>{
+ const ties=['rock','paper','scissors','rock'];assert.deepEqual(validateRecord({...base,ties}).ties,ties);assert.notEqual(validateRecord({...base,ties}).ties,ties);assert.deepEqual(validateRecord({...base,ties:[]}).ties,[]);
+ for(const value of [null,'rock',['rock',''],['paper',null],['lizard'],[1]])assert.throws(()=>validateRecord({...base,ties:value}),{status:400});
+});
+test('tie stage percentages, tied leaders and no-data stages',()=>{
+ const r=summarizeTieTransitions([{stage:1,hand:'rock',count:1},{stage:1,hand:'paper',count:1},{stage:2,hand:'scissors',count:3}]);assert.equal(r.stages[0].samples,2);assert.deepEqual(r.stages[0].predictedHands,['rock','paper']);assert.equal(r.stages[0].hands[0].percentage,50);assert.deepEqual(r.stages[1].predictedHands,['scissors']);assert.equal(r.stages[2].samples,0);assert.deepEqual(r.stages[2].predictedHands,[]);
 });
