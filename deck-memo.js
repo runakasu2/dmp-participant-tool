@@ -65,8 +65,13 @@ function latestMatching(matches, users = []) {
       // A bye/empty seat may not carry a DMP ID. It is not a player.
       if (!id || id === '0') continue;
       // Nojigiku represents the absent opponent of a bye with -1 (not a player ID).
-      if (id === '-1' && String(match['user' + side + 'no']) === '-1' &&
-          /^Bye\s*[（(]不戦勝[）)]$/i.test(String(match['user' + side] || '').trim())) continue;
+      if (
+  (id === '-1' || id === '-2') &&
+  String(match['user' + side + 'no']) === id &&
+  /^Bye\s*[（(]\s*不戦勝\s*[）)]$/i.test(
+    String(match['user' + side] || '').trim()
+  )
+) continue;
       if (!/^\d{1,50}$/.test(id)) {
   console.error('Invalid nojigiku DMP ID:', {
     id,
