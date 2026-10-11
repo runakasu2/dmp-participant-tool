@@ -202,26 +202,23 @@ function normalizeMemoMatching(matching) {
       }
     } catch (error) { if (request === detailRequest) info.textContent = error.message; }
   }
+  const archivePager=new SavedListPager(document.getElementById('memo-archives-list'),'保存済みデッキメモ');
   let listRequest = 0;
   async function loadArchives() {
     const request = ++listRequest;
     const state = document.getElementById('memo-archives-status');
-    const table = document.getElementById('memo-archives-list');
     state.textContent = '読み込み中...';
     try {
       const data = await getJson('/api/deck-memo/archives', {cache:'no-store'});
       if (request !== listRequest) return;
-      table.replaceChildren();
       state.textContent = data.events.length ? '保存済み：' + data.events.length + '大会' : '保存済み大会はありません。';
-      for (const event of data.events) {
-        const row = document.createElement('tr');
-        const date = document.createElement('td'); date.textContent = event.event_date;
-        const name = document.createElement('td');
-        const button = document.createElement('button'); button.className = 'player-detail-link'; button.textContent = event.event_name;
-        button.addEventListener('click', () => openArchive(event.id)); name.appendChild(button);
-        const count = document.createElement('td'); count.textContent = event.registered_count + ' / ' + event.participant_count;
-        row.append(date, name, count); table.appendChild(row);
-      }
+      archivePager.update(data.events,event=>{
+        const row=document.createElement('div');row.className='saved-memo-row';
+        const button=document.createElement('button');button.type='button';button.className='player-detail-link';
+        const name=document.createElement('strong');name.textContent=event.event_name;
+        const meta=document.createElement('span');meta.textContent=`${event.event_date||'日付不明'} ／ デッキ登録 ${event.registered_count} / ${event.participant_count}人`;
+        button.append(name,meta);button.addEventListener('click',()=>openArchive(event.id));row.append(button);return row;
+      },'保存済み大会はありません。');
     } catch (error) { if (request === listRequest) state.textContent = error.message; }
   }
   archiveSave.addEventListener('click', async () => {

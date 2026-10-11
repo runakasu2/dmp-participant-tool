@@ -804,3 +804,24 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 #rps-history-pages { display: flex; gap: 10px; align-items: center; }
 #page-rps [hidden] { display: none !important; }
 @media (max-width: 720px) { .rps-tie-row { grid-template-columns: minmax(0,1fr) auto; } .rps-tie-row label { grid-column: 1 / -1; } }
+
+/* Saved pairing/memo lists share compact ten-record pages. */
+.saved-list { min-width: 0; margin-top: 8px; }
+.saved-list-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; align-items:flex-start; }
+.saved-list-page { flex:0 0 100%; min-width:0; box-sizing:border-box; scroll-snap-align:start; scroll-snap-stop:always; }
+.saved-list-page .matching-archive-row, .saved-memo-row { padding:0; margin:0; border-bottom:1px solid var(--border); }
+.saved-list-page .matching-archive-row > button, .saved-memo-row > button { display:flex; flex-direction:column; gap:3px; width:100%; min-height:44px; padding:8px 10px; margin:0; text-align:left; border:0; border-radius:0; background:transparent; font-size:inherit; color:var(--text); white-space:normal; }
+.saved-list-page strong { font-size:.9rem; overflow-wrap:anywhere; }
+.saved-list-page button > span { font-size:.75rem; color:var(--muted); overflow-wrap:anywhere; }
+.saved-list-controls { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:8px; }
+.saved-list-controls button { min-height:44px; padding:6px 12px; margin:0; }
+.saved-list-controls span { font-size:.8rem; white-space:nowrap; }
+#matching-archive-list, #memo-archives-list { max-width:100%; }
+#matching-archive-list [hidden], #memo-archives-list [hidden] { display:none; }
+#memo-archives-reload, #matching-reload, #matching-delete-open { width:auto; min-height:44px; padding:6px 12px; margin:0 4px 6px 0; }
+.saved-archives-section { padding:14px 16px; margin:16px 0; }
+.saved-archives-section > h2 { margin:0 0 8px; }
+.saved-archives-section > .hint, .saved-archives-section > [role="status"] { margin:4px 0 8px; }
+@media(max-width:600px) { .saved-archives-section { padding:12px; } }
+.saved-list-page .matching-archive-row > button, .saved-memo-row > button { align-items:flex-start; text-decoration:none; }
+.saved-list-page button > span { font-weight:400; }

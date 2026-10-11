@@ -65,7 +65,7 @@
     'memo-list': '対戦表を取得すると、ここでデッキを記録できます。'
   };
   const cardLists = ['participant-list', 'result-list', 'event-results-list', 'player-search-list',
-    'player-history-list', 'memo-list', 'memo-archives-list', 'memo-archive-players', 'memo-import-rows'];
+    'player-history-list', 'memo-list', 'memo-archive-players', 'memo-import-rows'];
   const compactLists = new Set(['participant-list', 'result-list', 'event-results-list', 'memo-archive-players']);
   function compactRow(row, id, headers) {
     if (row.cells.length < 2 || row.querySelector('[colspan]')) return;

@@ -24,6 +24,8 @@ test('selection autosaves to loaded admin, summary updates; failed save restores
     return {ok:true,json:async()=>({success:true,sourceUrl:'https://nojigikucs.com/?admin=first',adminKey:'first',latestRound:2,participants:[{dmpId:'101',name:'名前',table:1,deckId:stored,deckName:stored?'A':null}]})};
   }});
   vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  context.ResizeObserver=class {observe(){}};
+  vm.runInContext(fs.readFileSync('saved-list-pager.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
   const refresh=elements.get('memo-refresh');
   elements.get('memo-url').value='https://nojigikucs.com/?admin=first';
@@ -57,9 +59,11 @@ test('saved list and detail can be opened without either external API or current
       {success:true,events:[{id:7,event_name:'保存済みCS',event_date:'2026-09-28',registered_count:1,participant_count:2}]}};
   }});
   vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  context.ResizeObserver=class {observe(){}};
+  vm.runInContext(fs.readFileSync('saved-list-pager.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
   await elements.get('memo-archives-reload').handlers.click();
-  const link=elements.get('memo-archives-list').children[0].children[1].children[0];
+  const link=elements.get('memo-archives-list').children[0].children[0].children[0].children[0];
   await link.handlers.click();
   assert.equal(elements.get('memo-archive-title').textContent,'保存済みCS');
   assert.equal(elements.get('memo-archive-players').children.length,2);
@@ -76,9 +80,11 @@ test('reset sends deletion only after both confirmations',async()=>{
         {success:true,events:[{id:7,event_name:'大会A',event_date:'2026-09-28',registered_count:0,participant_count:0}]}};
     }});
     vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  context.ResizeObserver=class {observe(){}};
+  vm.runInContext(fs.readFileSync('saved-list-pager.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
     await elements.get('memo-archives-reload').handlers.click();
-    await elements.get('memo-archives-list').children[0].children[1].children[0].handlers.click();
+    await elements.get('memo-archives-list').children[0].children[0].children[0].children[0].handlers.click();
     await elements.get('memo-archive-reset').handlers.click();
     assert.equal(prompts,answers.length);
     assert.equal(deletions,answers.every(Boolean)?1:0);
@@ -95,6 +101,8 @@ test('TCG memo UI has only table/name/deck, saves by provider key and preserves 
       participants:[{participantKey:'id:42',internalParticipantId:'42',name:'旧HN',table:null,bye:true,deckId,deckName:deckId?'正式デッキ':null}]})};
   }});
   vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  context.ResizeObserver=class {observe(){}};
+  vm.runInContext(fs.readFileSync('saved-list-pager.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
   await elements.get('memo-refresh').handlers.click();
   let row=elements.get('memo-list').children[0];assert.equal(row.children.length,3);
@@ -114,6 +122,8 @@ test('latest TCG matching rows and header share 32 unique real players even when
  const matching={success:true,provider:'tcg_meister',latestRound:5,participantCount:0,adminKey:'5482242',participants:[...people,...people.slice(0,3),{name:'BYE',participantKey:'bye',round:5},{name:'不戦勝',participantKey:'bye2'},{name:'',participantKey:'empty'},{name:'old',participantKey:'old',round:4}]};
  const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},fetch:async url=>({ok:true,json:async()=>url.startsWith('/api/decks?')?{success:true,decks:[]}:matching})});
  vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+ context.ResizeObserver=class {observe(){}};
+ vm.runInContext(fs.readFileSync('saved-list-pager.js','utf8'),context);
  vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
  await elements.get('memo-refresh').handlers.click();
  assert.equal(elements.get('memo-list').children.length,32);
@@ -134,6 +144,8 @@ test('all memo providers use event format; standalone provider fallback and save
   const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element()},fetch:async url=>({ok:true,json:async()=>url.includes('/api/decks')?{success:true,decks:[{id:1,name:'A',formats:['original']},{id:2,name:'B',formats:['advance']}]}:
    {success:true,provider,event:eventFormat?{format:eventFormat}:null,format:providerFormat,latestRound:1,participants:[{dmpId:'1',participantKey:'id:1',internalParticipantId:'1',name:'Player',round:1,table:1,deckId:2,deckName:'B'}]}})});
   vm.runInContext(fs.readFileSync('deck-select.js','utf8'),context);
+  context.ResizeObserver=class {observe(){}};
+  vm.runInContext(fs.readFileSync('saved-list-pager.js','utf8'),context);
   vm.runInContext(fs.readFileSync('deck-memo-ui.js','utf8'),context);
   await elements.get('memo-refresh').handlers.click();
   const select=elements.get('memo-list').children[0].children.at(-1).children[0];

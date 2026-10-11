@@ -777,7 +777,7 @@
           <tbody id="memo-list"></tbody>
         </table>
       </div>
-      <section>
+      <section class="saved-archives-section">
         <h2>保存済み対戦表</h2>
         <p class="hint">元サイトのデータ消去後も参照できます。削除するのは対戦表のみです。</p>
         <button id="matching-reload" type="button">対戦表一覧を更新</button>
@@ -797,14 +797,11 @@
           <button id="matching-delete-cancel" type="button">キャンセル</button>
         </dialog>
       </section>
-      <section>
+      <section class="saved-archives-section">
         <h2>保存済みデッキメモ</h2>
         <button id="memo-archives-reload">一覧を更新</button>
         <p id="memo-archives-status" role="status"></p>
-        <div class="table-scroll"><table>
-          <thead><tr><th>開催日</th><th>大会名</th><th>デッキ登録 / 参加者</th></tr></thead>
-          <tbody id="memo-archives-list"></tbody>
-        </table></div>
+        <div id="memo-archives-list"></div>
       </section>
       <section id="memo-archive-detail" hidden>
         <h2 id="memo-archive-title"></h2>
@@ -878,6 +875,7 @@
   <script src="deck-period-ui.js"></script>
   <script src="provisional-results-ui.js"></script>
   <script src="script.js"></script>
+  <script src="saved-list-pager.js"></script>
   <script src="deck-memo-ui.js"></script>
   <script src="matching-archive-ui.js"></script>
   <script src="deck-memo-import-ui.js"></script>

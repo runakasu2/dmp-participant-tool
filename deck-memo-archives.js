@@ -117,7 +117,7 @@ function installArchiveRoutes(app, pool) {
           COUNT(p.participant_key)::int AS participant_count, COUNT(p.deck_id)::int AS registered_count
         FROM deck_memo_archives a
         LEFT JOIN deck_memo_archive_players p ON p.archive_id = a.id
-        GROUP BY a.id ORDER BY a.event_date DESC, a.id DESC
+        GROUP BY a.id ORDER BY a.updated_at DESC NULLS LAST, a.created_at DESC NULLS LAST, a.id DESC
       `);
       res.json({success:true,events:result.rows});
     } catch(err) {
