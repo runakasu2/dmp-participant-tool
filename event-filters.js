@@ -9,7 +9,7 @@ function parseEventFilters(query={}){
  if(dates.startDate&&dates.endDate&&dates.startDate>dates.endDate)throw Error('開始日は終了日以前にしてください。');
  return {format,...dates};
 }
-function eventFilterQuery(filters){const q=new URLSearchParams({format:filters.format});for(const key of ['startDate','endDate'])if(filters[key])q.set(key,filters[key]);return q.toString();}
+function eventFilterQuery(filters){const q=new URLSearchParams({format:filters.format});for(const key of ['startDate','endDate'])if(filters[key])q.set(key,filters[key]);if(Array.isArray(filters.eventIds))q.set('eventIds',filters.eventIds.join(','));return q.toString();}
 // Browser-side filtering only; keep server date/format queries unchanged.
 function filterEventsByName(events,query=''){
  const normalize=value=>String(value??'').normalize('NFKC').toLocaleLowerCase('ja').trim();

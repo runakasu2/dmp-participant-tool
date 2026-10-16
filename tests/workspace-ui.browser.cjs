@@ -175,7 +175,7 @@ function responseFor(url,request){
         await page.locator('.memo-live-table').screenshot({path:path.join(output,`${width}-compact-roster.png`)});
       }
 
-      await page.locator('#memo-archives-list button').click();await page.locator('#memo-archive-players tr').first().waitFor();await check('archive',width);
+      await page.locator('#memo-archives-list .player-detail-link').click();await page.locator('#memo-archive-players tr').first().waitFor();await check('archive',width);
       assert.equal(await page.locator('#memo-table-head th').count(),3,'TCG live stays three columns');
       assert.equal(await page.locator('#memo-archive-head th').count(),2,'TCG archive has no inferred DMP ID');
       if(width<=720){await page.locator('#menu-more').click();await page.keyboard.press('Escape');assert.equal(await page.locator('#menu-more').getAttribute('aria-expanded'),'false');assert.equal(await page.evaluate(()=>document.activeElement.id),'menu-more');}

@@ -29,6 +29,5 @@ function createDeckPeriodControls(readFilters){
   }
   document.getElementById('show-deck-period').addEventListener('click',load);
   for(const value of ['list','pie'])document.getElementById('period-'+value).addEventListener('click',()=>{mode=value;renderMode();});
-  for(const id of ['events-start-date','events-end-date'])document.getElementById(id).addEventListener('input',clear);
   return {clear,load};
 }

@@ -72,7 +72,6 @@ function createDeckTrendControls(readFilters){
   }
   document.getElementById('show-deck-trends').addEventListener('click',load);
   for(const value of ['percentage','count'])document.getElementById('trend-'+value).addEventListener('click',()=>{mode=value;if(data?.events.length)render();});
-  for(const id of ['events-start-date','events-end-date'])document.getElementById(id).addEventListener('input',clear);
   if(typeof ResizeObserver!=='undefined') {
     let lastWidth=0;
     new ResizeObserver(()=>{

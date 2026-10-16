@@ -5,6 +5,12 @@ async function getDeckTrends(db,query){
   for(const [key,operator] of [['startDate','>='],['endDate','<=']])if(filters[key]){
     params.push(filters[key]);conditions.push('event_date'+operator+'$'+params.length+'::date');
   }
+  if(query.eventIds!==undefined){
+    if(typeof query.eventIds!=='string'||(query.eventIds!==''&&!/^\d+(,\d+)*$/.test(query.eventIds)))throw Object.assign(Error('対象大会の指定が不正です。'),{status:400});
+    const ids=query.eventIds===''?[]:[...new Set(query.eventIds.split(',').map(Number))];
+    if(ids.some(id=>!Number.isSafeInteger(id)||id<1||id>2147483647))throw Object.assign(Error('対象大会の指定が不正です。'),{status:400});
+    params.push(ids);conditions.push('id=ANY($'+params.length+'::int[])');
+  }
   const result=await db.query(`SELECT id,shop_id,event_id,seq,event_name,event_date::text AS event_date,participant_count
     FROM events WHERE ${conditions.join(' AND ')} ORDER BY event_date ASC NULLS LAST,id ASC`,params);
   const rows=await loadEventDeckRows(db,result.rows.map(e=>e.id)),byEvent=new Map();
@@ -26,7 +32,7 @@ function installDeckTrendRoutes(app,db){
   app.get('/api/deck-trends',async(req,res)=>{
     try{parseEventFilters(req.query);}catch(error){return res.status(400).json({success:false,error:error.message});}
     try{res.json({success:true,...await getDeckTrends(db,req.query)});}
-    catch(error){console.error('デッキ母数推移取得エラー:',error);res.status(500).json({success:false,error:'デッキ母数推移を取得できませんでした。'});}
+    catch(error){console.error('デッキ母数推移取得エラー:',error);res.status(error.status||500).json({success:false,error:error.status?error.message:'デッキ母数推移を取得できませんでした。'});}
   });
 }
 module.exports={getDeckTrends,installDeckTrendRoutes};

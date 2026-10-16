@@ -20,7 +20,7 @@ function installPeriodSummaryRoutes(app,db){
   app.get('/api/deck-period-summary',async(req,res)=>{
     try{parseEventFilters(req.query);}catch(error){return res.status(400).json({success:false,error:error.message});}
     try{res.json({success:true,...buildPeriodSummary(await getDeckTrends(db,req.query))});}
-    catch(error){console.error('期間母数取得エラー:',error);res.status(500).json({success:false,error:'期間母数を取得できませんでした。'});}
+    catch(error){console.error('期間母数取得エラー:',error);res.status(error.status||500).json({success:false,error:error.status?error.message:'期間母数を取得できませんでした。'});}
   });
 }
 module.exports={buildPeriodSummary,installPeriodSummaryRoutes};

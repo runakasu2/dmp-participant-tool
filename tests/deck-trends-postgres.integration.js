@@ -38,6 +38,17 @@ test('trend PostgreSQL: formats, boundaries, full event keys, aliases, denominat
  assert.deepEqual((await getDeckTrends(pool,{format:'original',startDate:'2026-10-01'})).events.map(e=>e.eventRecordId),[5]);
  assert.deepEqual((await getDeckTrends(pool,{format:'original',endDate:'2026-09-01'})).events.map(e=>e.eventRecordId),[1,2]);
  await assert.rejects(()=>getDeckTrends(pool,{startDate:'2026-10-01',endDate:'2026-09-01'}));
+ const selected=await getDeckTrends(pool,{format:'original',eventIds:'2,4,2',startDate:'2026-09-01',endDate:'2026-09-30'});
+ assert.deepEqual(selected.events.map(e=>e.eventRecordId),[2]);
+ assert.deepEqual(selected.excludedEvents.map(e=>e.eventRecordId),[4]);
+ const selectedPeriod=buildPeriodSummary(selected);
+ assert.equal(selectedPeriod.totalEvents,2);assert.equal(selectedPeriod.totalParticipants,2);
+ assert.deepEqual(selectedPeriod.decks.map(d=>[d.deckName,d.count,d.percentage]),[['B',1,50]]);
+ const empty=buildPeriodSummary(await getDeckTrends(pool,{format:'original',eventIds:''}));
+ assert.equal(empty.totalEvents,0);assert.equal(empty.totalParticipants,0);assert.deepEqual(empty.decks,[]);
+ assert.deepEqual((await getDeckTrends(pool,{format:'2block',eventIds:'1,2'})).events,[]);
+ assert.equal(buildPeriodSummary(await getDeckTrends(pool,{format:'original'})).totalParticipants,8);
+ for(const eventIds of ['1,wat','0','2147483648',['1'],'1);DROP TABLE events;'])await assert.rejects(()=>getDeckTrends(pool,{eventIds}),e=>e.status===400);
  // No deck_formats table exists: current membership cannot hide historical usage.
  }finally{await db.close();}
 });

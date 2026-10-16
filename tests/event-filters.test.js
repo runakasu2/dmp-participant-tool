@@ -32,3 +32,9 @@ test('local name search supports Japanese partial matches, empty input and prese
  assert.equal(filterEventsByName(events,'ドラスタ')[0],events[0]);
  assert.equal(JSON.stringify(events),before);
 });
+
+test('analysis scope serializes all matching IDs, distinguishes empty from unrestricted',()=>{
+ assert.equal(new URLSearchParams(eventFilterQuery({format:'original',eventIds:[9,3,7]})).get('eventIds'),'9,3,7');
+ assert.equal(new URLSearchParams(eventFilterQuery({format:'original',eventIds:[]})).get('eventIds'),'');
+ assert.equal(new URLSearchParams(eventFilterQuery({format:'original'})).has('eventIds'),false);
+});

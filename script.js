@@ -1255,8 +1255,15 @@ initializeAnalysisCloseButtons();
 let eventFilters=parseEventFilters({});
 let loadedEvents=null;
 const eventNameSearch=document.getElementById('events-name-search');
-function readEventAnalysisFilters(){return parseEventFilters({format:eventFilters.format,
- startDate:document.getElementById('events-start-date').value,endDate:document.getElementById('events-end-date').value});}
+function selectedEvents(){return filterEventsByName(loadedEvents||[],eventNameSearch.value);}
+function readEventAnalysisFilters(){
+ if(loadedEvents===null)throw Error('大会一覧の取得完了後に分析を表示してください。');
+ return {...eventFilters,eventIds:selectedEvents().map(event=>event.id)};
+}
+function refreshVisibleEventAnalysis(){
+ if(!document.getElementById('deck-trends').hidden)void deckTrendControls.load();
+ if(!document.getElementById('deck-period-summary').hidden)void deckPeriodControls.load();
+}
 const deckTrendControls=createDeckTrendControls(readEventAnalysisFilters);
 const deckPeriodControls=createDeckPeriodControls(readEventAnalysisFilters);
 const filterError=document.getElementById('event-filter-error');
@@ -1284,10 +1291,11 @@ document.querySelectorAll('[data-format]').forEach(button=>button.addEventListen
 window.addEventListener('popstate',()=>{if(eventResetControls.busy)return;restoreEventFilters();menuEvents.click();});
 const eventResetControls = createEventResetControls(afterReset => loadEvents(afterReset));
 let eventsLoadVersion = 0;
+let refreshTrendAfterLoad=false,refreshPeriodAfterLoad=false;
 function renderLoadedEvents(){
   if(loadedEvents===null)return;
   const list=document.getElementById('event-list');
-  const visible=filterEventsByName(loadedEvents,eventNameSearch.value);
+  const visible=selectedEvents();
   // Rebuild the deletion controller from visible rows so hidden matches cannot be selected.
   eventResetControls.beginLoad();
   list.replaceChildren();
@@ -1298,11 +1306,14 @@ function renderLoadedEvents(){
   for(const event of visible)list.appendChild(createEventCard(event,eventResetControls,openEventDetail));
   eventResetControls.endLoad();
 }
-eventNameSearch.addEventListener('input',()=>{if(!eventResetControls.busy)renderLoadedEvents();});
+eventNameSearch.addEventListener('input',()=>{if(!eventResetControls.busy){renderLoadedEvents();refreshVisibleEventAnalysis();}});
+for(const id of ['events-start-date','events-end-date'])document.getElementById(id).addEventListener('input',()=>applyEventFilters());
 async function loadEvents(afterReset = false) {
+  if (eventResetControls.busy && !afterReset) return;
+  refreshTrendAfterLoad ||= !document.getElementById('deck-trends').hidden;
+  refreshPeriodAfterLoad ||= !document.getElementById('deck-period-summary').hidden;
   deckTrendControls.clear();
   deckPeriodControls.clear();
-  if (eventResetControls.busy && !afterReset) return;
   const version = ++eventsLoadVersion;
   loadedEvents=null;
   eventResetControls.beginLoad();
@@ -1345,6 +1356,9 @@ async function loadEvents(afterReset = false) {
 
     loadedEvents=data.events || [];
     renderLoadedEvents();
+    if(refreshTrendAfterLoad)void deckTrendControls.load();
+    if(refreshPeriodAfterLoad)void deckPeriodControls.load();
+    refreshTrendAfterLoad=false;refreshPeriodAfterLoad=false;
 
   } catch (error) {
     if (version !== eventsLoadVersion) return;
