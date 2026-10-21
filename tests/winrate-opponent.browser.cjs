@@ -16,15 +16,33 @@ const {fixture}=require('./matching-archives-postgres.integration'),{seed,reques
  for(const width of [375,390,430,768,1440]){
  await page.setViewportSize({width,height:900});if(width<=720)await page.locator('#menu-more').click();await page.locator('#menu-winrate').click();await ready();
  await page.locator('#wr-search-mode').selectOption('opponent');await page.locator('#wr-deck-b-query').fill('相手別名');assert.equal(await page.locator('#wr-deck-b option').count(),2);await page.locator('#wr-deck-b').selectOption('2');await stats(7);assert.equal(await page.locator('#wr-deck-a-field').isVisible(),false);
+ assert.equal(await page.locator('#wr-search-sort-field').isVisible(),true);assert.equal(await page.locator('#wr-search-sort option').count(),4);assert.equal(await page.locator('#wr-search-breakdown-title').textContent(),'使用デッキ別勝率');assert.ok(!(await page.locator('#page-winrate').textContent()).includes('自分'));
  const names=()=>page.locator('#wr-decks th').allTextContents();assert.deepEqual(await names(),['A','C']);assert.deepEqual(await page.locator('#wr-decks tr').first().locator('td').allTextContents(),['5','3','2','60.0%']);assert.equal(await page.locator('#wr-matrix-body button').count(),2);assert.equal(await page.locator('#wr-matrix-head th').last().textContent(),'B');
- for(const [sort,expected]of [['rate-asc',['C','A']],['rate',['A','C']],['wins',['A','C']],['matches',['A','C']]]){await page.locator('#wr-sort').selectOption(sort);assert.deepEqual(await names(),expected);assert.deepEqual(await page.locator('#wr-search-opponents tr td:first-child').allTextContents(),expected);}
+ for(const [sort,expected]of [['rate-asc',['C','A']],['rate',['A','C']],['wins',['A','C']],['matches',['A','C']]]){await page.locator('#wr-search-sort').selectOption(sort);assert.equal(await page.locator('#wr-sort').inputValue(),sort);assert.deepEqual(await names(),expected);assert.deepEqual(await page.locator('#wr-search-opponents tr td:first-child').allTextContents(),expected);}
  await page.locator('#wr-search-opponents button').first().click();await page.waitForFunction(()=>document.querySelector('#wr-detail-status').textContent.startsWith('5試合'));assert.equal(await page.locator('#wr-detail-title').textContent(),'A 対 B');await page.locator('#wr-detail-close').click();
- await page.locator('#wr-search-mode').selectOption('matchup');await stats(7);assert.equal(await page.locator('#wr-deck-a').inputValue(),'');assert.deepEqual(await names(),['A','C']);
+ await page.locator('#wr-search-sort').selectOption('rate-asc');
+ await page.locator('#wr-search-mode').selectOption('matchup');await stats(7);assert.equal(await page.locator('#wr-deck-a').inputValue(),'');assert.deepEqual(await names(),['C','A']);assert.equal(await page.locator('#wr-search-sort').inputValue(),'rate-asc');
+ await page.locator('#wr-search-sort').selectOption('matches');
  await page.locator('#wr-search-details').click();await page.waitForFunction(()=>document.querySelector('#wr-detail-status').textContent.startsWith('7試合'));await page.locator('#wr-detail-close').click();
  await page.screenshot({path:`/tmp/winrate-opponent-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  await page.locator('#wr-deck-b-query').fill('');await page.locator('#wr-deck-b').selectOption('4');await page.waitForFunction(()=>document.querySelector('#wr-status').textContent==='該当する対戦データがありません。');assert.equal(await page.locator('#wr-search-details').isEnabled(),false);
  await page.locator('#wr-search-clear').click();await ready();assert.equal(await page.locator('#wr-search-results').isVisible(),false);await page.locator('#menu-deck-memo').click();console.log('PASS '+width+'px: opponent-only alias, own-side rates, four sorts, matrix/detail directions, zero, clear and layout');
  }
+ // Controlled read-only response checks ties independently of fixture match totals.
+ await page.route('**/api/winrate/summary?**',async route=>{
+   const response=await route.fetch(),result=await response.json();
+   if(result.search?.mode==='opponent'){
+     result.decks=[{deckId:101,name:'Z',physicalMatches:8,matches:8,wins:4,losses:4,rate:50},{deckId:102,name:'A',physicalMatches:8,matches:8,wins:4,losses:4,rate:50},{deckId:103,name:'More',physicalMatches:10,matches:10,wins:5,losses:5,rate:50},{deckId:104,name:'Low',physicalMatches:3,matches:3,wins:0,losses:3,rate:0}];
+     result.search.opponents=result.decks.map(d=>({...d,matches:d.physicalMatches,opponentDeckId:2}));
+   }
+   await route.fulfill({json:result});
+ });
+ await page.locator('#menu-winrate').click();await ready();await page.locator('#wr-search-mode').selectOption('opponent');await page.locator('#wr-deck-b-query').fill('');await page.locator('#wr-deck-b').selectOption('2');await page.waitForFunction(()=>document.querySelector('#wr-search-opponents').textContent.includes('More'));
+ const tieNames=()=>page.locator('#wr-search-opponents tr td:first-child').allTextContents();
+ const statsBefore=await page.locator('#wr-search-stats').textContent();
+ for(const [sort,expected]of [['matches',['More','A','Z','Low']],['rate',['More','A','Z','Low']],['rate-asc',['Low','More','A','Z']],['wins',['More','A','Z','Low']]]){await page.locator('#wr-search-sort').selectOption(sort);assert.deepEqual(await tieNames(),expected);assert.equal(await page.locator('#wr-search-stats').textContent(),statsBefore);}
+ await page.locator('#wr-format').selectOption('advance');await page.waitForFunction(()=>!document.querySelector('#wr-results').hidden);assert.equal(await page.locator('#wr-search-sort').inputValue(),'wins');assert.deepEqual(await tieNames(),['More','A','Z','Low']);
+ console.log('PASS rate ties use match count then deck name; sorting preserves statistics and selection survives format change');
  assert.deepEqual(errors,[]);assert.deepEqual(await snapshot(),before);console.log('PASS combined SQL scope and unchanged saved records');
  }finally{await browser?.close();if(server)await new Promise(r=>server.close(r));await f.db.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
