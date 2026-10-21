@@ -47,6 +47,30 @@ test('deck search stats sum across event-local groups without losing Seq or roun
  const rows=[match(),match({round:2}),match({event:{id:2,seq:'2'},winnerKey:'entry:2'})],r=aggregate(rows,catalog,{searchMode:'deck',deckAId:1});assert.equal(r.search.events.length,2);assert.equal(r.search.events.reduce((n,e)=>n+e.matches,0),r.search.stats.matches);assert.equal(r.search.events.reduce((n,e)=>n+e.wins,0),r.search.stats.wins);
 });
 test('search query validation rejects missing, inconsistent, injected and repeated deck IDs',()=>{
- for(const q of [{searchMode:'other'},{searchMode:'deck'},{searchMode:'matchup',deckAId:'1'},{deckAId:'1'},{searchMode:'deck',deckAId:'1',deckBId:'2'},{searchMode:'deck',deckAId:'1 OR 1=1'},{searchMode:'deck',deckAId:['1','2']}])assert.throws(()=>filters(q));
+ for(const q of [{searchMode:'other'},{searchMode:'deck'},{deckAId:'1'},{searchMode:'deck',deckAId:'1',deckBId:'2'},{searchMode:'deck',deckAId:'1 OR 1=1'},{searchMode:'deck',deckAId:['1','2']}])assert.throws(()=>filters(q));
  assert.equal(filters({searchMode:'matchup',deckAId:'1',deckBId:'1'}).deckBId,1);
+});
+
+test('opponent-only search orients known own decks, mirrors, exclusions, alias and dedup',()=>{
+ const rows=[match(),match({round:2,winnerKey:'entry:2'}),match({round:3,sides:[side('entry:1',3),side('entry:2',2)]}),match({round:4,sides:[side('entry:1',2),side('entry:2',2)]}),match({round:5,sides:[side('entry:1',null),side('entry:2',2)]}),match({round:6,outcome:'bye'}),match({round:7,outcome:'double_loss'}),match({round:8,outcome:'unresolved'}),match({round:9,sides:[side('entry:1',1),side('entry:2',3)]})];
+ const r=aggregate(rows,catalog,{searchMode:'opponent',deckBId:2});
+ assert.deepEqual(r.search.stats,{matches:5,wins:3,losses:2,observations:5,rate:60});
+ assert.deepEqual([deck(r,1).physicalMatches,deck(r,1).wins,deck(r,1).losses,deck(r,1).rate],[2,1,1,50]);
+ assert.deepEqual([deck(r,3).physicalMatches,deck(r,3).wins,deck(r,3).losses,deck(r,3).rate],[1,1,0,100]);
+ assert.deepEqual([deck(r,2).physicalMatches,deck(r,2).wins,deck(r,2).losses,deck(r,2).rate],[1,1,1,50]);
+ assert.equal(r.search.unknownOpponent.matches,1);assert.equal(r.search.opponents.length,3);assert.ok(r.pairs.every(p=>p.opponentDeckId===2));
+ assert.equal(r.exclusions.bye,1);assert.equal(r.exclusions.doubleLoss,1);assert.equal(r.exclusions.unresolved,1);
+ assert.equal(r.counts.normalMatches,5);assert.equal(r.detail.get('3:2')[0].result,'win');
+ const reverse=aggregate(rows,catalog,{searchMode:'opponent',deckBId:1});assert.equal(deck(reverse,2).wins,1);assert.equal(deck(reverse,2).losses,1);
+ const alias=match({sides:[side('entry:1',2),{...side('entry:2',null),deckName:'ゴルギー'}]});
+ assert.equal(deck(aggregate([alias],catalog,{searchMode:'opponent',deckBId:1}),2).rate,100);
+ const duplicated=aggregate([match(),match({archiveId:2,provider:'sugatool'})],catalog,{searchMode:'opponent',deckBId:2});assert.equal(duplicated.search.stats.matches,1);assert.equal(duplicated.counts.duplicatesRemoved,1);
+ const empty=aggregate([],catalog,{searchMode:'opponent',deckBId:2});assert.equal(empty.search.opponent.id,2);assert.equal(empty.search.stats.rate,null);assert.deepEqual(empty.decks,[]);
+});
+test('opponent-only request validation preserves prior deck and pair contracts',()=>{
+ assert.equal(filters({searchMode:'opponent',deckBId:'2'}).deckBId,2);
+ assert.equal(filters({searchMode:'matchup',deckBId:'2'}).searchMode,'opponent');
+ assert.equal(filters({searchMode:'matchup',deckAId:'1'}).searchMode,'deck');
+ assert.equal(filters({searchMode:'matchup'}).searchMode,undefined);
+ for(const q of [{searchMode:'opponent'},{searchMode:'opponent',deckAId:'1',deckBId:'2'},{searchMode:'opponent',deckBId:['2']},{searchMode:'opponent',deckBId:'x'}])assert.throws(()=>filters(q));
 });

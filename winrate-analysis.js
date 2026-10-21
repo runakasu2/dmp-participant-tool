@@ -13,12 +13,13 @@ function filters(query={}){
   if(query.startDate&&query.endDate&&query.startDate>query.endDate)throw fail('開始日は終了日以前にしてください。');
   if(query.format&&!['original','advance','2block','unknown'].includes(query.format))throw fail('フォーマットが不正です。');
   if(query.provider&&!PROVIDERS.includes(query.provider))throw fail('提供サイトが不正です。');
-  const searchMode=query.searchMode||'all';
-  if(!['all','deck','matchup'].includes(searchMode))throw fail('検索モードが不正です。');
+  let searchMode=query.searchMode||'all';
+  if(!['all','deck','opponent','matchup'].includes(searchMode))throw fail('検索モードが不正です。');
   const deckAId=query.deckAId?integer(query.deckAId,'デッキA'):null,deckBId=query.deckBId?integer(query.deckBId,'デッキB'):null;
-  if(searchMode!=='all'&&!deckAId)throw fail('デッキAを選択してください。');
-  if(searchMode==='matchup'&&!deckBId)throw fail('デッキBを選択してください。');
-  if((searchMode==='all'&&(deckAId||deckBId))||(searchMode==='deck'&&deckBId))throw fail('検索モードとデッキ指定が一致しません。');
+  if(searchMode==='matchup')searchMode=deckAId?(deckBId?'matchup':'deck'):(deckBId?'opponent':'all');
+  if(['deck','matchup'].includes(searchMode)&&!deckAId)throw fail('デッキAを選択してください。');
+  if(['opponent','matchup'].includes(searchMode)&&!deckBId)throw fail('デッキBを選択してください。');
+  if((searchMode==='all'&&(deckAId||deckBId))||(searchMode==='deck'&&deckBId)||(searchMode==='opponent'&&deckAId))throw fail('検索モードとデッキ指定が一致しません。');
   const search=searchMode==='all'?{}:{searchMode,deckAId,deckBId};
   return {...search,mode,eventRecordId,startDate:query.startDate||null,endDate:query.endDate||null,format:query.format||null,provider:query.provider||null};
 }
@@ -53,8 +54,10 @@ function aggregate(matches,catalog,scope={}){
     const identity=matchIdentity(m);if(!groups.has(identity))groups.set(identity,[]);groups.get(identity).push(m);
   }
   // Filter complete dedup groups, never raw rows: an excluded conflict must not become a guessed win.
-  const searching=scope.searchMode==='deck'||scope.searchMode==='matchup';
-  const matchesSearch=m=>m.sides.some(p=>p.deckId===scope.deckAId)&&(scope.searchMode!=='matchup'||(scope.deckAId===scope.deckBId?m.sides.filter(p=>p.deckId===scope.deckAId).length===2:m.sides.some(p=>p.deckId===scope.deckBId)));
+  const opponentOnly=scope.searchMode==='opponent';
+  const searching=opponentOnly||scope.searchMode==='deck'||scope.searchMode==='matchup';
+  const searchSide=(p,m)=>opponentOnly?Boolean(p.deckId)&&m.sides.some(other=>other!==p&&other.deckId===scope.deckBId):p.deckId===scope.deckAId;
+  const matchesSearch=m=>opponentOnly?m.sides.some(p=>p.deckId===scope.deckBId):m.sides.some(p=>p.deckId===scope.deckAId)&&(scope.searchMode!=='matchup'||(scope.deckAId===scope.deckBId?m.sides.filter(p=>p.deckId===scope.deckAId).length===2:m.sides.some(p=>p.deckId===scope.deckBId)));
   if(searching)for(const [key,group] of groups)if(!group.some(matchesSearch))groups.delete(key);
   const savedRecords=[...groups.values()].reduce((n,group)=>n+group.length,0);
   const decks=new Map(),pairs=new Map(),detail=new Map(),searchRows=[];
@@ -74,27 +77,27 @@ function aggregate(matches,catalog,scope={}){
     // the search after resolving copies, retain the group as excluded rather than inventing a deck.
     if(searching&&!matchesSearch(m)){exclusions.other++;continue;}
     normalMatches++;const [a,b]=m.sides;
-    if(searching)searchRows.push({archiveId:m.archiveId,provider:m.provider,event:m.event,round:m.round,table:m.table,matchKey:m.matchKey,sides:m.sides.map(p=>({...p,deckName:masters.get(p.deckId)?.name??null})),winnerKey:m.winnerKey,mirror:a.deckId===b.deckId,result:a.deckId===b.deckId?'mirror':m.sides.find(p=>p.deckId===scope.deckAId).participantKey===m.winnerKey?'win':'loss',sources:group.map(c=>({archiveId:c.archiveId,provider:c.provider}))});
+    if(searching)searchRows.push({archiveId:m.archiveId,provider:m.provider,event:m.event,round:m.round,table:m.table,matchKey:m.matchKey,sides:m.sides.map(p=>({...p,deckName:masters.get(p.deckId)?.name??null})),winnerKey:m.winnerKey,mirror:a.deckId===b.deckId,result:a.deckId===b.deckId?'mirror':m.sides.find(p=>opponentOnly?p.deckId!==scope.deckBId:p.deckId===scope.deckAId)?.participantKey===m.winnerKey?'win':'loss',sources:group.map(c=>({archiveId:c.archiveId,provider:c.provider}))});
     if(a.deckId||b.deckId)deckAnalysisMatches++;
-    for(const id of new Set(m.sides.map(p=>p.deckId).filter(Boolean)))ensure(id).physicalMatches++;
-    for(const p of m.sides){const d=ensure(p.deckId);if(d){d.matches++;d[p.participantKey===m.winnerKey?'wins':'losses']++;}}
+    for(const id of new Set(m.sides.filter(p=>!opponentOnly||searchSide(p,m)).map(p=>p.deckId).filter(Boolean)))ensure(id).physicalMatches++;
+    for(const p of m.sides){if(opponentOnly&&!searchSide(p,m))continue;const d=ensure(p.deckId);if(d){d.matches++;d[p.participantKey===m.winnerKey?'wins':'losses']++;}}
     if(!a.deckId||!b.deckId){exclusions.missingDeck++;continue;}
     matchupMatches++;
     const add=(id,opp,mirror)=>{const key=id+':'+opp;if(!pairs.has(key)){pairs.set(key,{deckId:id,opponentDeckId:opp,matches:0,wins:0,losses:0,rate:null});detail.set(key,[]);}const pair=pairs.get(key);pair.matches++;if(mirror){pair.wins++;pair.losses++;}else pair[m.sides.find(p=>p.deckId===id).participantKey===m.winnerKey?'wins':'losses']++;
       detail.get(key).push({archiveId:m.archiveId,provider:m.provider,event:m.event,round:m.round,table:m.table,matchKey:m.matchKey,sides:m.sides.map(p=>({...p,deckName:masters.get(p.deckId)?.name??null})),winnerKey:m.winnerKey,mirror,result:mirror?'mirror':m.sides.find(p=>p.deckId===id).participantKey===m.winnerKey?'win':'loss',sources:group.map(c=>({archiveId:c.archiveId,provider:c.provider}))});};
-    add(a.deckId,b.deckId,a.deckId===b.deckId);if(a.deckId!==b.deckId)add(b.deckId,a.deckId,false);
+    if(!opponentOnly||b.deckId===scope.deckBId)add(a.deckId,b.deckId,a.deckId===b.deckId);if(a.deckId!==b.deckId&&(!opponentOnly||a.deckId===scope.deckBId))add(b.deckId,a.deckId,false);
   }
   for(const d of decks.values())d.rate=d.matches?d.wins/d.matches*100:null;
   for(const p of pairs.values())p.rate=p.wins/(p.wins+p.losses)*100;
   for(const rows of detail.values())rows.sort((a,b)=>(b.event.date||'').localeCompare(a.event.date||'')||a.event.id-b.event.id||a.round-b.round||a.archiveId-b.archiveId||a.matchKey.localeCompare(b.matchKey));
   let search=null;
   if(searching){
-    const statistics=rows=>{let wins=0,losses=0;for(const row of rows)for(const side of row.sides)if(side.deckId===scope.deckAId){if(side.participantKey===row.winnerKey)wins++;else losses++;}return {matches:rows.length,wins,losses,observations:wins+losses,rate:wins+losses?wins/(wins+losses)*100:null};};
+    const statistics=rows=>{let wins=0,losses=0;for(const row of rows)for(const side of row.sides)if(searchSide(side,row)){if(side.participantKey===row.winnerKey)wins++;else losses++;}return {matches:rows.length,wins,losses,observations:wins+losses,rate:wins+losses?wins/(wins+losses)*100:null};};
     searchRows.sort((a,b)=>(b.event.date||'').localeCompare(a.event.date||'')||a.event.id-b.event.id||a.round-b.round||a.matchKey.localeCompare(b.matchKey));
     const eventRows=new Map();for(const row of searchRows){if(!eventRows.has(row.event.id))eventRows.set(row.event.id,[]);eventRows.get(row.event.id).push(row);}
-    search={mode:scope.searchMode,deck:masters.get(scope.deckAId)??null,opponent:masters.get(scope.deckBId)??null,stats:statistics(searchRows),unknownOpponent:statistics(searchRows.filter(row=>row.sides.some(p=>!p.deckId))),opponents:[...pairs.values()].filter(p=>p.deckId===scope.deckAId),events:[...eventRows.values()].map(rows=>({event:rows[0].event,...statistics(rows)}))};
+    search={mode:scope.searchMode,deck:masters.get(scope.deckAId)??null,opponent:masters.get(scope.deckBId)??null,stats:statistics(searchRows),unknownOpponent:statistics(searchRows.filter(row=>row.sides.some(p=>!p.deckId))),opponents:[...pairs.values()].filter(p=>opponentOnly?p.opponentDeckId===scope.deckBId:p.deckId===scope.deckAId),events:[...eventRows.values()].map(rows=>({event:rows[0].event,...statistics(rows)}))};
   }
-  return {search,searchRows,decks:[...decks.values()].sort((a,b)=>a.deckId-b.deckId),pairs:[...pairs.values()].sort((a,b)=>a.deckId-b.deckId||a.opponentDeckId-b.opponentDeckId),exclusions,counts:{savedRecords,uniqueMatches:groups.size,duplicatesRemoved:savedRecords-groups.size,dedupConflicts:conflicts,normalMatches,deckAnalysisMatches,matchupMatches,excludedMatches:Object.values(exclusions).reduce((a,b)=>a+b,0),deckPlayerObservations:[...decks.values()].reduce((n,d)=>n+d.matches,0)},detail};
+  return {search,searchRows,decks:[...decks.values()].filter(d=>!opponentOnly||d.matches>0).sort((a,b)=>a.deckId-b.deckId),pairs:[...pairs.values()].sort((a,b)=>a.deckId-b.deckId||a.opponentDeckId-b.opponentDeckId),exclusions,counts:{savedRecords,uniqueMatches:groups.size,duplicatesRemoved:savedRecords-groups.size,dedupConflicts:conflicts,normalMatches,deckAnalysisMatches,matchupMatches,excludedMatches:Object.values(exclusions).reduce((a,b)=>a+b,0),deckPlayerObservations:[...decks.values()].reduce((n,d)=>n+d.matches,0)},detail};
 }
 async function loadAnalysis(db,scope){
   const archiveRows=await db.query(`SELECT a.id,a.event_record_id,a.provider,a.source_key,e.shop_id,e.event_id,e.seq,e.event_name,e.event_date::text AS event_date,e.format
@@ -140,6 +143,6 @@ function installWinrateRoutes(app,pool){
     if(req.query.revision&&!/^[a-f0-9]{64}$/.test(req.query.revision))throw fail('集計識別子が不正です。');
     const result=await loadAnalysis(db,scope);if(req.query.revision&&req.query.revision!==result.revision)throw fail('データが更新されています。集計を再読み込みしてから詳細を開いてください。',409);
     const pair=result.pairs.find(p=>p.deckId===deckId&&p.opponentDeckId===opponentDeckId)||{deckId,opponentDeckId,matches:0,wins:0,losses:0,rate:null};
-    const rows=result.detail.get(deckId+':'+opponentDeckId)||[];return {revision:result.revision,pair,deck:result.decks.find(d=>d.deckId===deckId)??null,opponent:result.decks.find(d=>d.deckId===opponentDeckId)??null,page,pageSize,total:rows.length,matches:rows.slice((page-1)*pageSize,page*pageSize)};}));
+    const rows=result.detail.get(deckId+':'+opponentDeckId)||[];return {revision:result.revision,pair,deck:result.decks.find(d=>d.deckId===deckId)??null,opponent:result.decks.find(d=>d.deckId===opponentDeckId)??(result.search?.opponent?.id===opponentDeckId?{deckId:opponentDeckId,name:result.search.opponent.name}:null),page,pageSize,total:rows.length,matches:rows.slice((page-1)*pageSize,page*pageSize)};}));
 }
 module.exports={aggregate,filters,matchIdentity,loadAnalysis,installWinrateRoutes};
