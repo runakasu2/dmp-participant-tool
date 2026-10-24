@@ -35,7 +35,7 @@ function filteredEventCatalog(query={}){
  if(query.format!==undefined){params.push(filters.format);clauses.push('format=$'+params.length);}
  for(const [key,operator] of [['startDate','>='],['endDate','<=']])if(filters[key]){params.push(filters[key]);clauses.push('event_date'+operator+'$'+params.length+'::date');}
  const cte='WITH selected_events AS (SELECT * FROM events'+(clauses.length?' WHERE '+clauses.join(' AND '):'')+') ';
- return {sql:cte+EVENT_CATALOG_SQL.replace('FROM events e','FROM selected_events e').replace('JOIN events ev','JOIN selected_events ev'),params};
+ return {sql:cte+EVENT_CATALOG_SQL.replace('FROM events e','FROM selected_events e').replace('JOIN events ev','JOIN selected_events ev').replace('FROM event_results GROUP BY event_record_id','FROM event_results r JOIN selected_events se ON se.id=r.event_record_id GROUP BY event_record_id'),params};
 }
 function parseImageUrl(value) {
   if (value === '' || value === null) return null;

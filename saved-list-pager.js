@@ -17,15 +17,17 @@
     }
     update(items,render,empty) {
       const timestamp=item=>{for(const field of ['updated_at','created_at','event_date']){const value=Date.parse(item[field]);if(Number.isFinite(value))return value;}return 0;};
-      this.items=[...items].sort((a,b)=>timestamp(b)-timestamp(a)||Number(b.id)-Number(a.id));this.render=render;
-      this.page=Math.min(this.page,Math.max(0,Math.ceil(items.length/10)-1));this.track.replaceChildren();this.pages=[];
+      this.items=items.map(item=>({item,time:timestamp(item)})).sort((a,b)=>b.time-a.time||Number(b.item.id)-Number(a.item.id)).map(row=>row.item);this.render=render;
+      this.page=Math.min(this.page,Math.max(0,Math.ceil(items.length/10)-1));this.track.replaceChildren();this.pages=[];this.rendered=[];
       for(let i=0;i<Math.ceil(items.length/10);i++){const section=document.createElement('div');section.className='saved-list-page';section.setAttribute('aria-label',`${i+1}ページ`);this.pages.push(section);this.track.append(section);}
       if(!items.length){const message=document.createElement('p');message.textContent=empty;this.track.append(message);}
       this.draw();this.track.scrollLeft=this.page*this.track.clientWidth;
     }
     draw() {
       // Render the destination and its neighbours before a swipe arrives.
-      this.pages.forEach((section,i)=>{if(Math.abs(i-this.page)<=1&&!section.dataset.rendered){section.append(...this.items.slice(i*10,i*10+10).map(this.render));section.dataset.rendered='true';}});
+      for(const i of this.rendered||[])if(Math.abs(i-this.page)>1){this.pages[i].replaceChildren();delete this.pages[i].dataset.rendered;}
+      this.rendered=[];
+      for(let i=Math.max(0,this.page-1);i<=Math.min(this.pages.length-1,this.page+1);i++){const section=this.pages[i];if(!section.dataset.rendered){section.append(...this.items.slice(i*10,i*10+10).map(this.render));section.dataset.rendered='true';}this.rendered.push(i);}
       this.prev.disabled=this.page<=0;this.next.disabled=this.page>=this.pages.length-1;this.counter.textContent=this.pages.length?`${this.page+1} / ${this.pages.length}ページ`:'0 / 0ページ';this.controls.hidden=!this.pages.length;
     }
     move(page){if(page<0||page>=this.pages.length)return;this.page=page;this.draw();this.track.scrollTo({left:page*this.track.clientWidth,behavior:'auto'});}

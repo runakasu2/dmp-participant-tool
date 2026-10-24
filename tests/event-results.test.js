@@ -16,8 +16,8 @@ function fixture(fail = '') {
       if (sql === 'BEGIN') snapshot = new Map(records);
       if (sql === 'ROLLBACK') { records.clear(); for (const [k,v] of snapshot) records.set(k,v); }
       if (sql.includes('INSERT INTO events')) return {rows: [{id: 7}]};
-      if (sql.includes('INSERT INTO players')) return {rows: [{id: Number(args[0])}]};
-      if (sql.includes('INSERT INTO event_results')) records.set(args[0] + ':' + args[1], args.slice(2));
+      if (sql.includes('INSERT INTO players')) return {rows: Array.from(args[0], id=>({id:Number(id),dmp_id:id}))};
+      if (sql.includes('INSERT INTO event_results')) for(let i=0;i<args[1].length;i++)records.set(args[0]+':'+args[1][i],[args[2][i],args[3][i]]);
       return {rows: []};
     },
     release() { released = true; }
@@ -32,7 +32,7 @@ function fixture(fail = '') {
     if (name === 'express') return express;
     if (name === 'pg') return {Pool: function () {return pool;}};
     return require(name);
-  }, process: {env: {}}, __dirname: path.join(__dirname, '..'), console: {log() {}, error() {}}, URL, TextDecoder});
+  }, process: {env: {}}, __dirname: path.join(__dirname, '..'), console: {log() {}, error() {}}, URL, TextDecoder, AbortSignal});
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8'), context);
   return {calls, records, pool, context, get released() {return released;},
     save: (rows) => context.saveEventResults({shopId: 's', eventId: 'e', held: '2', eventDate: '2026-09-28', eventName: '大会'}, rows),

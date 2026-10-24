@@ -1,0 +1,270 @@
+{
+  "baselineRef": "2041096d08a8bd3f47c80a2fd599ae5483048a3a",
+  "node": "v24.21.0",
+  "method": "3 alternating trials; each median of 5 warm measurements; after includes migration 015 index",
+  "dataset": {
+    "events": 120,
+    "history": 7680,
+    "matches": 15360
+  },
+  "metrics": {
+    "catalog": {
+      "beforeMs": 87.71,
+      "afterMs": 4.27,
+      "improvementPercent": 95.1,
+      "beforeQueries": 1,
+      "afterQueries": 1
+    },
+    "trends": {
+      "beforeMs": 73.01,
+      "afterMs": 73.89,
+      "improvementPercent": -1.2,
+      "beforeQueries": 2,
+      "afterQueries": 2
+    },
+    "winrate": {
+      "beforeMs": 372.41,
+      "afterMs": 348.62,
+      "improvementPercent": 6.4,
+      "beforeQueries": 6,
+      "afterQueries": 6
+    },
+    "playerSearch": {
+      "beforeMs": 0.62,
+      "afterMs": 0.63,
+      "improvementPercent": -1.6,
+      "beforeQueries": 1,
+      "afterQueries": 1
+    },
+    "saveResults": {
+      "beforeMs": 59.57,
+      "afterMs": 4.91,
+      "improvementPercent": 91.8,
+      "beforeQueries": 259,
+      "afterQueries": 5
+    }
+  },
+  "checksIdentical": true,
+  "runs": {
+    "before": [
+      {
+        "dataset": {
+          "events": 120,
+          "history": 7680,
+          "matches": 15360
+        },
+        "metrics": {
+          "catalog": {
+            "medianMs": 89.56,
+            "queries": 1
+          },
+          "trends": {
+            "medianMs": 75.05,
+            "queries": 2
+          },
+          "winrate": {
+            "medianMs": 372.41,
+            "queries": 6
+          },
+          "playerSearch": {
+            "medianMs": 0.62,
+            "queries": 1
+          },
+          "saveResults": {
+            "medianMs": 59.57,
+            "queries": 259
+          }
+        },
+        "checks": {
+          "catalog": "2967708155c786f2e00fa8fc22213b5ec3473b9a83e9c9d723e0c464b0833d41",
+          "trends": "1336be3c837997f7911715abfcca804a31170757a2eda5b08111c47772a63047",
+          "winrate": "731cf610d38c2e9d6321aa2b73b983012b19f41ffc47e3c926107d42e9d4c4f1",
+          "playerSearch": "9046593b2ebed7ed8dbc5f211efb1544f1d0e111a34b86c53db2822ffefcc9c1",
+          "saveResults": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848"
+        }
+      },
+      {
+        "dataset": {
+          "events": 120,
+          "history": 7680,
+          "matches": 15360
+        },
+        "metrics": {
+          "catalog": {
+            "medianMs": 84.35,
+            "queries": 1
+          },
+          "trends": {
+            "medianMs": 72.56,
+            "queries": 2
+          },
+          "winrate": {
+            "medianMs": 367.81,
+            "queries": 6
+          },
+          "playerSearch": {
+            "medianMs": 0.78,
+            "queries": 1
+          },
+          "saveResults": {
+            "medianMs": 59.29,
+            "queries": 259
+          }
+        },
+        "checks": {
+          "catalog": "2967708155c786f2e00fa8fc22213b5ec3473b9a83e9c9d723e0c464b0833d41",
+          "trends": "1336be3c837997f7911715abfcca804a31170757a2eda5b08111c47772a63047",
+          "winrate": "731cf610d38c2e9d6321aa2b73b983012b19f41ffc47e3c926107d42e9d4c4f1",
+          "playerSearch": "9046593b2ebed7ed8dbc5f211efb1544f1d0e111a34b86c53db2822ffefcc9c1",
+          "saveResults": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848"
+        }
+      },
+      {
+        "dataset": {
+          "events": 120,
+          "history": 7680,
+          "matches": 15360
+        },
+        "metrics": {
+          "catalog": {
+            "medianMs": 87.71,
+            "queries": 1
+          },
+          "trends": {
+            "medianMs": 73.01,
+            "queries": 2
+          },
+          "winrate": {
+            "medianMs": 374.74,
+            "queries": 6
+          },
+          "playerSearch": {
+            "medianMs": 0.61,
+            "queries": 1
+          },
+          "saveResults": {
+            "medianMs": 60.51,
+            "queries": 259
+          }
+        },
+        "checks": {
+          "catalog": "2967708155c786f2e00fa8fc22213b5ec3473b9a83e9c9d723e0c464b0833d41",
+          "trends": "1336be3c837997f7911715abfcca804a31170757a2eda5b08111c47772a63047",
+          "winrate": "731cf610d38c2e9d6321aa2b73b983012b19f41ffc47e3c926107d42e9d4c4f1",
+          "playerSearch": "9046593b2ebed7ed8dbc5f211efb1544f1d0e111a34b86c53db2822ffefcc9c1",
+          "saveResults": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848"
+        }
+      }
+    ],
+    "after": [
+      {
+        "dataset": {
+          "events": 120,
+          "history": 7680,
+          "matches": 15360
+        },
+        "metrics": {
+          "catalog": {
+            "medianMs": 4.21,
+            "queries": 1
+          },
+          "trends": {
+            "medianMs": 74.09,
+            "queries": 2
+          },
+          "winrate": {
+            "medianMs": 340.51,
+            "queries": 6
+          },
+          "playerSearch": {
+            "medianMs": 0.63,
+            "queries": 1
+          },
+          "saveResults": {
+            "medianMs": 4.94,
+            "queries": 5
+          }
+        },
+        "checks": {
+          "catalog": "2967708155c786f2e00fa8fc22213b5ec3473b9a83e9c9d723e0c464b0833d41",
+          "trends": "1336be3c837997f7911715abfcca804a31170757a2eda5b08111c47772a63047",
+          "winrate": "731cf610d38c2e9d6321aa2b73b983012b19f41ffc47e3c926107d42e9d4c4f1",
+          "playerSearch": "9046593b2ebed7ed8dbc5f211efb1544f1d0e111a34b86c53db2822ffefcc9c1",
+          "saveResults": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848"
+        }
+      },
+      {
+        "dataset": {
+          "events": 120,
+          "history": 7680,
+          "matches": 15360
+        },
+        "metrics": {
+          "catalog": {
+            "medianMs": 4.27,
+            "queries": 1
+          },
+          "trends": {
+            "medianMs": 73.89,
+            "queries": 2
+          },
+          "winrate": {
+            "medianMs": 348.62,
+            "queries": 6
+          },
+          "playerSearch": {
+            "medianMs": 0.63,
+            "queries": 1
+          },
+          "saveResults": {
+            "medianMs": 4.71,
+            "queries": 5
+          }
+        },
+        "checks": {
+          "catalog": "2967708155c786f2e00fa8fc22213b5ec3473b9a83e9c9d723e0c464b0833d41",
+          "trends": "1336be3c837997f7911715abfcca804a31170757a2eda5b08111c47772a63047",
+          "winrate": "731cf610d38c2e9d6321aa2b73b983012b19f41ffc47e3c926107d42e9d4c4f1",
+          "playerSearch": "9046593b2ebed7ed8dbc5f211efb1544f1d0e111a34b86c53db2822ffefcc9c1",
+          "saveResults": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848"
+        }
+      },
+      {
+        "dataset": {
+          "events": 120,
+          "history": 7680,
+          "matches": 15360
+        },
+        "metrics": {
+          "catalog": {
+            "medianMs": 4.3,
+            "queries": 1
+          },
+          "trends": {
+            "medianMs": 73.29,
+            "queries": 2
+          },
+          "winrate": {
+            "medianMs": 351.93,
+            "queries": 6
+          },
+          "playerSearch": {
+            "medianMs": 0.63,
+            "queries": 1
+          },
+          "saveResults": {
+            "medianMs": 4.91,
+            "queries": 5
+          }
+        },
+        "checks": {
+          "catalog": "2967708155c786f2e00fa8fc22213b5ec3473b9a83e9c9d723e0c464b0833d41",
+          "trends": "1336be3c837997f7911715abfcca804a31170757a2eda5b08111c47772a63047",
+          "winrate": "731cf610d38c2e9d6321aa2b73b983012b19f41ffc47e3c926107d42e9d4c4f1",
+          "playerSearch": "9046593b2ebed7ed8dbc5f211efb1544f1d0e111a34b86c53db2822ffefcc9c1",
+          "saveResults": "2747b7c718564ba5f066f0523b03e17f6a496b06851333d2d59ab6d863225848"
+        }
+      }
+    ]
+  }
+}

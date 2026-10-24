@@ -44,21 +44,18 @@ async function saveEventResults(eventInfo, participants) {
       RETURNING id
     `, [String(eventInfo.shopId), String(eventInfo.eventId), String(eventInfo.held),
       eventInfo.eventDate || null, eventInfo.eventName || null, rows.length,eventInfo.format || null]);
-    for (const row of rows) {
-      const player = await client.query(`
-        INSERT INTO players (dmp_id, handle_name) VALUES ($1, $2)
-        ON CONFLICT (dmp_id) DO UPDATE SET
-          handle_name = EXCLUDED.handle_name, updated_at = CURRENT_TIMESTAMP
-        RETURNING id
-      `, [row.id, row.name]);
-      await client.query(`
-        INSERT INTO event_results (event_record_id, player_id, rank, rank_raw)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (event_record_id, player_id) DO UPDATE SET
-          rank = EXCLUDED.rank, rank_raw = EXCLUDED.rank_raw,
-          updated_at = CURRENT_TIMESTAMP
-      `, [event.rows[0].id, player.rows[0].id, row.rank, row.raw]);
-    }
+    const players = await client.query(`
+      INSERT INTO players (dmp_id, handle_name)
+      SELECT * FROM unnest($1::text[], $2::text[])
+      ON CONFLICT (dmp_id) DO UPDATE SET handle_name=EXCLUDED.handle_name,updated_at=CURRENT_TIMESTAMP
+      RETURNING id,dmp_id
+    `,[rows.map(row=>row.id),rows.map(row=>row.name)]);
+    const ids=new Map(players.rows.map(player=>[player.dmp_id,player.id]));
+    await client.query(`
+      INSERT INTO event_results (event_record_id,player_id,rank,rank_raw)
+      SELECT $1,player_id,rank,rank_raw FROM unnest($2::int[],$3::int[],$4::text[]) AS r(player_id,rank,rank_raw)
+      ON CONFLICT (event_record_id, player_id) DO UPDATE SET rank=EXCLUDED.rank,rank_raw=EXCLUDED.rank_raw,updated_at=CURRENT_TIMESTAMP
+    `,[event.rows[0].id,rows.map(row=>ids.get(row.id)),rows.map(row=>row.rank),rows.map(row=>row.raw)]);
     await client.query("COMMIT");
     active = false;
   } catch (error) {
@@ -327,6 +324,7 @@ async function fetchEventDetail(detailUrl) {
     await fetch(
       canonicalDetailUrl,
       {
+        signal: AbortSignal.timeout(15000),
         headers: {
           "User-Agent":
             "Mozilla/5.0",
@@ -1146,126 +1144,12 @@ app.post(
           });
       }
 
-      const participants = [];
-
-      let offset = 0;
-
-      while (true) {
-
-        const response =
-          await fetch(
-            "https://www.dmp-ranking.com/Deckbuild/Event/EventParticipantsList.aspx/GetResultRanking",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json; charset=UTF-8"
-              },
-
-              body: JSON.stringify({
-                shopID:
-                  String(shopId),
-
-                eventID:
-                  String(eventId),
-
-                heldID:
-                  String(seq),
-
-                offset:
-                  offset
-              })
-            }
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            `DMPランキング取得エラー: HTTP ${response.status}`
-          );
-        }
-
-        const result =
-          await response.json();
-
-        let data =
-          result.d;
-
-        if (
-          typeof data === "string"
-        ) {
-          data =
-            JSON.parse(data);
-        }
-
-        if (
-          !Array.isArray(data) ||
-          data.length === 0
-        ) {
-          break;
-        }
-
-        for (
-          const participant of data
-        ) {
-          participants.push({
-            id:
-              participant[
-                "会員ID"
-              ],
-
-            name:
-              participant[
-                "ハンドルネーム"
-              ]
-          });
-        }
-
-        if (
-          data.length < 32
-        ) {
-          break;
-        }
-
-        offset += 32;
-      }
-
-      for (
-        const participant
-        of participants
-      ) {
-        await pool.query(
-          `
-          INSERT INTO players
-            (
-              dmp_id,
-              handle_name
-            )
-
-          VALUES
-            (
-              $1,
-              $2
-            )
-
-          ON CONFLICT (dmp_id)
-
-          DO UPDATE SET
-            handle_name =
-              EXCLUDED.handle_name,
-
-            updated_at =
-              CURRENT_TIMESTAMP;
-          `,
-          [
-            String(
-              participant.id
-            ),
-
-            participant.name
-          ]
-        );
-      }
+      const participants=await fetchEventParticipants({shopId,eventId,seq},globalThis.fetch);
+      const players=new Map(participants.map(p=>[String(p.id),p.name]));
+      if(players.size)await pool.query(`INSERT INTO players(dmp_id,handle_name)
+        SELECT * FROM unnest($1::text[],$2::text[])
+        ON CONFLICT(dmp_id) DO UPDATE SET handle_name=EXCLUDED.handle_name,updated_at=CURRENT_TIMESTAMP`,
+        [[...players.keys()],[...players.values()]]);
 
       res.json({
         success: true,
@@ -1960,7 +1844,11 @@ app.get(
       // 大会・デッキ履歴
       // --------------------------
 
-      const historyResult = await pool.query(playerHistorySql, [player.id]);
+      const [historyResult,rpsSummary,rpsTiePredictions] = await Promise.all([
+        pool.query(playerHistorySql,[player.id]),
+        loadRpsSummary(pool,{playerId:player.id}),
+        loadTiePredictions(pool,{playerId:player.id})
+      ]);
 
       const history =
         historyResult.rows.map(
@@ -1992,8 +1880,6 @@ app.get(
 
 
       const insights = buildDeckInsights(history);
-      const rpsSummary = await loadRpsSummary(pool, {playerId: player.id});
-      const rpsTiePredictions = await loadTiePredictions(pool, {playerId: player.id});
 
       res.json({
         success: true,

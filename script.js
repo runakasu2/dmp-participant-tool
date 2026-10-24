@@ -1260,9 +1260,14 @@ function readEventAnalysisFilters(){
  if(loadedEvents===null)throw Error('大会一覧の取得完了後に分析を表示してください。');
  return {...eventFilters,eventIds:selectedEvents().map(event=>event.id)};
 }
+let eventAnalysisTimer=null,pendingTrend=false,pendingPeriod=false;
 function refreshVisibleEventAnalysis(){
- if(!document.getElementById('deck-trends').hidden)void deckTrendControls.load();
- if(!document.getElementById('deck-period-summary').hidden)void deckPeriodControls.load();
+ pendingTrend ||= !document.getElementById('deck-trends').hidden;
+ pendingPeriod ||= !document.getElementById('deck-period-summary').hidden;
+ if(pendingTrend)deckTrendControls.clear();
+ if(pendingPeriod)deckPeriodControls.clear();
+ clearTimeout(eventAnalysisTimer);
+ eventAnalysisTimer=setTimeout(()=>{eventAnalysisTimer=null;if(pendingTrend)void deckTrendControls.load();if(pendingPeriod)void deckPeriodControls.load();pendingTrend=false;pendingPeriod=false;},180);
 }
 const deckTrendControls=createDeckTrendControls(readEventAnalysisFilters);
 const deckPeriodControls=createDeckPeriodControls(readEventAnalysisFilters);
@@ -1310,8 +1315,9 @@ eventNameSearch.addEventListener('input',()=>{if(!eventResetControls.busy){rende
 for(const id of ['events-start-date','events-end-date'])document.getElementById(id).addEventListener('input',()=>applyEventFilters());
 async function loadEvents(afterReset = false) {
   if (eventResetControls.busy && !afterReset) return;
-  refreshTrendAfterLoad ||= !document.getElementById('deck-trends').hidden;
-  refreshPeriodAfterLoad ||= !document.getElementById('deck-period-summary').hidden;
+  clearTimeout(eventAnalysisTimer);eventAnalysisTimer=null;
+  refreshTrendAfterLoad ||= pendingTrend||!document.getElementById('deck-trends').hidden;pendingTrend=false;
+  refreshPeriodAfterLoad ||= pendingPeriod||!document.getElementById('deck-period-summary').hidden;pendingPeriod=false;
   deckTrendControls.clear();
   deckPeriodControls.clear();
   const version = ++eventsLoadVersion;

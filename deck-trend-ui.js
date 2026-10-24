@@ -46,17 +46,18 @@ function renderDeckTrend(container,series,mode,onPoint){
 function createDeckTrendControls(readFilters){
   const panel=document.getElementById('deck-trends'),status=document.getElementById('deck-trend-status'),choices=document.getElementById('deck-trend-choices'),chart=document.getElementById('deck-trend-chart'),detail=document.getElementById('deck-trend-point');
   let version=0,data=null,series=[],selected=new Set(),mode='percentage';
+  let controller=null;
   function render(){
     detail.textContent='ポイントをタップすると大会名・人数・使用率を確認できます。';
     for(const value of ['percentage','count'])document.getElementById('trend-'+value).setAttribute('aria-pressed',String(mode===value));
     renderDeckTrend(chart,series.filter(s=>selected.has(s.key)),mode,text=>{detail.textContent=text;});
   }
-  function clear(){version++;data=null;series=[];selected.clear();panel.hidden=true;chart.replaceChildren();choices.replaceChildren();}
+  function clear(){version++;controller?.abort();controller=null;data=null;series=[];selected.clear();panel.hidden=true;chart.replaceChildren();choices.replaceChildren();}
   async function load(){
     let filters;try{filters=readFilters();}catch(error){clear();panel.hidden=false;status.textContent=error.message;return;}
-    clear();const request=version;panel.hidden=false;status.textContent='母数推移を取得中...';detail.textContent='';
+    clear();controller=typeof AbortController!=='undefined'?new AbortController():null;const request=version;panel.hidden=false;status.textContent='母数推移を取得中...';detail.textContent='';
     try{
-      const response=await fetch('/api/deck-trends?'+eventFilterQuery(filters),{cache:'no-store'}),result=await response.json();
+      const response=await fetch('/api/deck-trends?'+eventFilterQuery(filters),{cache:'no-store',signal:controller?.signal}),result=await response.json();
       if(request!==version)return;if(!response.ok||!result.success)throw Error(result.error||'取得できませんでした。');
       data=result;series=buildTrendSeries(data);mode='percentage';selected=new Set(series.filter(s=>!s.unknown).slice(0,5).map(s=>s.key));
       status.textContent=`${DECK_FORMAT_LABELS[data.format]} ／ ${data.events.length}大会 ／ 母数未入力・参加人数または日付不明のため除外：${data.excludedEvents.length}大会`;

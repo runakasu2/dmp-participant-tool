@@ -1,0 +1,18 @@
+{
+  "before": {
+    "burstRequests": 10,
+    "pager": {
+      "medianMs": 58.6,
+      "retainedRows": 2000,
+      "visited": 2000
+    }
+  },
+  "after": {
+    "burstRequests": 2,
+    "pager": {
+      "medianMs": 60.1,
+      "retainedRows": 20,
+      "visited": 2000
+    }
+  }
+}

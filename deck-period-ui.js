@@ -1,6 +1,7 @@
 function createDeckPeriodControls(readFilters){
   const panel=document.getElementById('deck-period-summary'),status=document.getElementById('deck-period-status'),body=document.getElementById('deck-period-rows'),list=document.getElementById('deck-period-list'),pie=document.getElementById('deck-period-pie');
   let version=0,data=null,mode='list',pieDrawn=false;
+  let controller=null;
   function renderMode(){
     list.hidden=mode!=='list';pie.hidden=mode!=='pie';
     for(const value of ['list','pie'])document.getElementById('period-'+value).setAttribute('aria-pressed',String(mode===value));
@@ -10,12 +11,12 @@ function createDeckPeriodControls(readFilters){
       pieDrawn=true;
     }
   }
-  function clear(){version++;data=null;pieDrawn=false;panel.hidden=true;body.replaceChildren();pie.replaceChildren();}
+  function clear(){version++;controller?.abort();controller=null;data=null;pieDrawn=false;panel.hidden=true;body.replaceChildren();pie.replaceChildren();}
   async function load(){
     let filters;try{filters=readFilters();}catch(error){clear();panel.hidden=false;status.textContent=error.message;return;}
-    clear();const request=version;panel.hidden=false;mode='list';renderMode();status.textContent='期間母数を取得中...';
+    clear();controller=typeof AbortController!=='undefined'?new AbortController():null;const request=version;panel.hidden=false;mode='list';renderMode();status.textContent='期間母数を取得中...';
     try{
-      const response=await fetch('/api/deck-period-summary?'+eventFilterQuery(filters),{cache:'no-store'}),result=await response.json();
+      const response=await fetch('/api/deck-period-summary?'+eventFilterQuery(filters),{cache:'no-store',signal:controller?.signal}),result=await response.json();
       if(request!==version)return;if(!response.ok||!result.success)throw Error(result.error||'期間母数を取得できませんでした。');data=result;
       status.textContent=`${DECK_FORMAT_LABELS[data.format]} ／ ${data.startDate||'開始指定なし'} ～ ${data.endDate||'終了指定なし'}\n`+
         `期間内大会：${data.totalEvents} ／ 母数集計済み：${data.includedEvents} ／ 未集計：${data.missingEvents}\n`+
