@@ -41,7 +41,7 @@ test('selection autosaves to loaded admin, summary updates; failed save restores
   assert.equal(cell.children[1].attributes.title,'保存しました');
   assert.match(elements.get('memo-summary').textContent,/デッキ登録：1 \/ 1/);
   fail=true;select.value='';await select.handlers.change();
-  assert.equal(select.value,'1');assert.match(cell.children[1].textContent,/保存失敗/);
+  assert.equal(select.value,'1');assert.match(cell.children[1].attributes['aria-label'],/保存失敗/);
   assert.equal(cell.children[1].attributes['data-save-state'],'error');
   assert.equal(refresh.disabled,false);
   fail=false;await refresh.handlers.click();

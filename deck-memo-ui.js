@@ -170,7 +170,8 @@ function normalizeMemoMatching(matching) {
       selects.push(select);
       const saved = document.createElement('small'); saved.setAttribute('role', 'status');
       const showSaveStatus = (text, state) => {
-        saved.textContent = state==='saved'?'✅ 登録済み':state==='empty'?'🟠 未登録':text;
+        saved.textContent = state==='saved'?'✓':state==='empty'?'未':state==='saving'?'…':'!';
+        saved.setAttribute('aria-label', state==='saved'?'登録済み：'+text:state==='empty'?'未登録：'+text:text);
         saved.setAttribute('data-save-state', state);
         saved.setAttribute('title', text);
       };

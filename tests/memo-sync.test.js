@@ -37,18 +37,45 @@ test('two isolated browsers: author, duplicate rows, SSE, focus, reconnect, manu
   const [a,b]=pages;
   await b.locator('#memo-author').fill('るな');
   assert.equal(await b.locator('#memo-own-list tr').count(),2);
+  if(process.env.MEMO_UI_CAPTURE){
+   const capture=process.env.MEMO_UI_CAPTURE;
+   fs.mkdirSync('docs/artifacts',{recursive:true});
+   const metrics=await b.evaluate(()=>({width:innerWidth,documentWidth:document.documentElement.scrollWidth,
+    rows:[...document.querySelectorAll('#memo-list tr')].map(el=>el.getBoundingClientRect().height),
+    ownRows:[...document.querySelectorAll('#memo-own-list tr')].map(el=>el.getBoundingClientRect().height)}));
+   fs.writeFileSync('docs/artifacts/memo-ui-'+capture+'.json',JSON.stringify(metrics,null,2));
+   await b.locator('#memo-list').evaluate(el=>{el.closest('table').scrollIntoView({block:'start'});window.scrollBy(0,-90);});
+   await b.screenshot({path:'docs/artifacts/memo-ui-'+capture+'.png'});
+   await b.locator('#memo-own').screenshot({path:'docs/artifacts/memo-own-'+capture+'.png'});
+  }
+
   assert.deepEqual(await b.locator('#memo-list tr td:first-child').allTextContents(),['1','1','2','2']);
   assert.equal(await b.evaluate(()=>localStorage.getItem('deck-memo-author')),'るな');
   assert.equal(await a.locator('#memo-author').inputValue(),'');
+  for(const width of [320,375,390,430]){
+   await b.setViewportSize({width,height:844});
+   const geometry=await b.evaluate(()=>({
+    viewport:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,
+    rows:[...document.querySelectorAll('#memo-list tr,#memo-own-list tr')].map(row=>{
+     const select=row.querySelector('select').getBoundingClientRect();const status=row.querySelector('small').getBoundingClientRect();
+     return {height:row.getBoundingClientRect().height,selectHeight:select.height,right:status.right,
+      aligned:Math.abs((select.top+select.height/2)-(status.top+status.height/2))<2,statusRight:status.left>=select.right-1};
+    })}));
+   assert.equal(geometry.overflow,false,'page overflow at '+width);
+   for(const row of geometry.rows){assert.ok(row.height>=60&&row.height<=80);assert.ok(row.aligned&&row.statusRight);assert.ok(row.right<=width);assert.ok(row.selectHeight>=44);}
+  }
+  await b.setViewportSize({width:390,height:844});
+  assert.match(await b.locator('#memo-own-list small').first().getAttribute('aria-label'),/未登録/);
+
   await b.locator('#memo-url').fill('編集中');await b.locator('#memo-url').focus();
   await a.locator('#memo-list tr').nth(2).locator('select').selectOption('1');
   await b.waitForFunction(()=>document.querySelector('#memo-own-list select').value==='1');
   assert.equal(await b.locator('#memo-url').inputValue(),'編集中');assert.equal(await b.evaluate(()=>document.activeElement.id),'memo-url');
-  assert.match(await b.locator('#memo-own-list small').first().textContent(),/✅ 登録済み/);
+  assert.match(await b.locator('#memo-own-list small').first().textContent(),/✓/);
   await b.locator('#memo-own-list select').first().selectOption('');
   await a.locator('#memo-url').focus();
   await a.waitForFunction(()=>document.querySelectorAll('#memo-list select')[2].value==='');
-  assert.match(await b.locator('#memo-own-list small').first().textContent(),/🟠 未登録/);
+  assert.match(await b.locator('#memo-own-list small').first().textContent(),/未/);
   await b.locator('#memo-url').focus();
   for(const response of streams)response.end();
   await a.locator('#memo-list tr').nth(2).locator('select').selectOption('1');
@@ -56,7 +83,7 @@ test('two isolated browsers: author, duplicate rows, SSE, focus, reconnect, manu
   deck=null;await b.locator('#memo-manual-refresh').click();
   await b.waitForFunction(()=>document.querySelector('#memo-own-list select').value==='');
   const label=b.locator('#memo-own-list small').first();assert.ok(await label.isVisible());
-  assert.equal(await label.evaluate(el=>getComputedStyle(el).fontSize),'12px');
+  assert.equal(await label.evaluate(el=>getComputedStyle(el).fontSize),'15px');
   const rect=await b.locator('#memo-manual-refresh').boundingBox();assert.ok(rect.width>=44&&rect.height>=44&&rect.x>=0);
   await b.locator('#memo-author').fill('不一致');assert.match(await b.locator('#memo-own-status').textContent(),/該当する卓番がありません/);
   await b.locator('#memo-author').fill('');assert.ok(await b.locator('#memo-own').isHidden());

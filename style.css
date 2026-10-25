@@ -826,16 +826,35 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 .saved-list-page .matching-archive-row > button, .saved-memo-row > button { align-items:flex-start; text-decoration:none; }
 .saved-list-page button > span { font-weight:400; }
 
-/* Readable registration labels on desktop and phones, including duplicated rows. */
+/* Status stays beside the native selector without increasing row height. */
+#page-deck-memo .memo-live-table td:last-child { white-space: nowrap; }
+#page-deck-memo .memo-live-table select {
+  display: inline-block; width: calc(100% - 24px); box-sizing: border-box;
+  height: 44px; min-height: 44px; padding: 4px 2px; vertical-align: middle;
+  overflow: hidden; text-overflow: ellipsis;
+}
 #page-deck-memo .memo-live-table small[data-save-state] {
-  display: block; width: fit-content; max-width: 100%; margin-top: 5px;
-  padding: 4px 7px; border-radius: 6px; font-size: 12px; line-height: 1.5;
-  text-align: left; color: #164b2e; background: #dcf4e5;
+  display: inline-block; vertical-align: middle; box-sizing: border-box;
+  width: 20px; max-width: 20px; margin: 0 0 0 4px; padding: 0;
+  font-size: 15px; line-height: 24px; font-weight: 700; text-align: center;
+  color: #17623b; background: transparent; border-radius: 4px;
 }
 #page-deck-memo .memo-live-table small[data-save-state]::after { content: none; }
-#page-deck-memo .memo-live-table small[data-save-state="empty"] { color: #713900; background: #ffead0; font-weight: 700; }
-#page-deck-memo .memo-live-table small[data-save-state="error"] { color: #8a1825; background: #ffe6ea; }
-#page-deck-memo .memo-live-table select { width: 100%; }
+#page-deck-memo .memo-live-table small[data-save-state="empty"] { color: #854000; background: #ffead0; }
+#page-deck-memo .memo-live-table small:is([data-save-state="error"],[data-save-state="warning"]) { color: #8a1825; background: #ffe6ea; }
+@media(max-width:720px) {
+  #page-deck-memo .memo-live-table > tbody > tr { height: 64px; }
+  #page-deck-memo .memo-live-table th,
+  #page-deck-memo .memo-live-table > tbody > tr > td { padding: 5px 3px; }
+  #page-deck-memo .memo-live-table th:first-child { width: 24px; }
+  #page-deck-memo .memo-live-table:has(th:nth-child(4)) th:nth-child(2) { width: 50px; }
+  #page-deck-memo .memo-live-table:has(th:nth-child(4)) th:nth-last-child(2) { width: 25%; }
+  #page-deck-memo .memo-live-table > tbody > tr > td:not(:last-child) {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #page-deck-memo .matching-player-detail summary { overflow: hidden; text-overflow: ellipsis; }
+  #memo-own { padding: 8px; }
+}
 #memo-own { margin-block: 18px; padding: 12px; border: 2px solid #aacfc0; border-radius: 10px; }
 #memo-author { font-size: 16px; padding: 10px; max-width: 100%; box-sizing: border-box; }
 .memo-sync-toolbar { position: fixed; top: 12px; left: calc(var(--sidebar-width) + 12px); z-index: 80; max-width: min(320px, 80vw); padding: 6px; background: #fff; border: 1px solid #aacfc0; border-radius: 8px; box-shadow: 0 2px 8px #0002; }
