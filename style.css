@@ -825,3 +825,21 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 @media(max-width:600px) { .saved-archives-section { padding:12px; } }
 .saved-list-page .matching-archive-row > button, .saved-memo-row > button { align-items:flex-start; text-decoration:none; }
 .saved-list-page button > span { font-weight:400; }
+
+/* Readable registration labels on desktop and phones, including duplicated rows. */
+#page-deck-memo .memo-live-table small[data-save-state] {
+  display: block; width: fit-content; max-width: 100%; margin-top: 5px;
+  padding: 4px 7px; border-radius: 6px; font-size: 12px; line-height: 1.5;
+  text-align: left; color: #164b2e; background: #dcf4e5;
+}
+#page-deck-memo .memo-live-table small[data-save-state]::after { content: none; }
+#page-deck-memo .memo-live-table small[data-save-state="empty"] { color: #713900; background: #ffead0; font-weight: 700; }
+#page-deck-memo .memo-live-table small[data-save-state="error"] { color: #8a1825; background: #ffe6ea; }
+#page-deck-memo .memo-live-table select { width: 100%; }
+#memo-own { margin-block: 18px; padding: 12px; border: 2px solid #aacfc0; border-radius: 10px; }
+#memo-author { font-size: 16px; padding: 10px; max-width: 100%; box-sizing: border-box; }
+.memo-sync-toolbar { position: fixed; top: 12px; left: calc(var(--sidebar-width) + 12px); z-index: 80; max-width: min(320px, 80vw); padding: 6px; background: #fff; border: 1px solid #aacfc0; border-radius: 8px; box-shadow: 0 2px 8px #0002; }
+.memo-sync-toolbar button { min-height: 44px; margin: 0; }
+#memo-sync-status { display: block; font-size: 12px; }
+#page-deck-memo { padding-top: 76px; }
+@media(max-width:720px) { .memo-sync-toolbar { top: 8px; left: 8px; } }

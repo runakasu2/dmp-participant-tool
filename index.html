@@ -735,7 +735,11 @@
 </div>
 
     <div id="page-deck-memo" class="page" style="display: none;">
+      <div class="memo-sync-toolbar"><button id="memo-manual-refresh" type="button" disabled>メモを更新</button><span id="memo-sync-status" role="status"></span></div>
       <h2>デッキメモ</h2>
+      <label for="memo-author">メモ記入者</label>
+      <input id="memo-author" type="text" autocomplete="nickname" placeholder="ハンドルネーム">
+      <section id="memo-own" hidden><h3>あなたの卓番</h3><div id="memo-own-choice"></div><p id="memo-own-status" role="status"></p><div class="table-scroll"><table class="memo-live-table"><thead><tr id="memo-own-head"></tr></thead><tbody id="memo-own-list"></tbody></table></div></section>
       <p>大会中に確認した使用デッキのメモです。確定した大会履歴には反映しません。</p>
       <div class="form-panel">
       <p class="eyebrow">ライブデッキメモ</p>

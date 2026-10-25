@@ -70,6 +70,7 @@ async function saveEventResults(eventInfo, participants) {
 }
 
 app.use(express.json());
+require(require("node:path").join(__dirname, "memo-sync.js")).installMemoSync(app, {query:(...args)=>pool.query(...args)});
 app.use(express.static(__dirname));
 
 app.get("/api/event-results", async (req, res) => {
