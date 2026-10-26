@@ -862,3 +862,14 @@ table.compact-player-table { display: block !important; width: 100% !important; 
 #memo-sync-status { display: block; font-size: 12px; }
 #page-deck-memo { padding-top: 76px; }
 @media(max-width:720px) { .memo-sync-toolbar { top: 8px; left: 8px; } }
+
+#best-four-summary { margin-block: 16px; }
+#best-four-summary table { width: 100%; min-width: 0; table-layout: fixed; }
+#best-four-summary th:first-child { width: 40px; }
+#best-four-summary th:nth-last-child(-n+2) { width: 70px; }
+#best-four-summary th, #best-four-summary td { overflow-wrap: anywhere; }
+@media(max-width:720px) {
+  #best-four-summary th, #best-four-summary td { padding: 8px 4px; font-size: 13px; }
+  #best-four-summary th:first-child { width: 30px; }
+  #best-four-summary th:nth-last-child(-n+2) { width: 56px; }
+}

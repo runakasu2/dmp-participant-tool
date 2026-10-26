@@ -1260,17 +1260,20 @@ function readEventAnalysisFilters(){
  if(loadedEvents===null)throw Error('大会一覧の取得完了後に分析を表示してください。');
  return {...eventFilters,eventIds:selectedEvents().map(event=>event.id)};
 }
-let eventAnalysisTimer=null,pendingTrend=false,pendingPeriod=false;
+let eventAnalysisTimer=null,pendingTrend=false,pendingPeriod=false,pendingBestFour=false;
 function refreshVisibleEventAnalysis(){
  pendingTrend ||= !document.getElementById('deck-trends').hidden;
  pendingPeriod ||= !document.getElementById('deck-period-summary').hidden;
+ pendingBestFour ||= !document.getElementById('best-four-summary').hidden;
  if(pendingTrend)deckTrendControls.clear();
  if(pendingPeriod)deckPeriodControls.clear();
+ if(pendingBestFour)bestFourControls.clear();
  clearTimeout(eventAnalysisTimer);
- eventAnalysisTimer=setTimeout(()=>{eventAnalysisTimer=null;if(pendingTrend)void deckTrendControls.load();if(pendingPeriod)void deckPeriodControls.load();pendingTrend=false;pendingPeriod=false;},180);
+ eventAnalysisTimer=setTimeout(()=>{eventAnalysisTimer=null;if(pendingTrend)void deckTrendControls.load();if(pendingPeriod)void deckPeriodControls.load();if(pendingBestFour)void bestFourControls.load();pendingTrend=false;pendingPeriod=false;pendingBestFour=false;},180);
 }
 const deckTrendControls=createDeckTrendControls(readEventAnalysisFilters);
 const deckPeriodControls=createDeckPeriodControls(readEventAnalysisFilters);
+const bestFourControls=createBestFourControls(()=>({...readEventAnalysisFilters(),eventName:eventNameSearch.value.trim(),events:selectedEvents()}));
 const filterError=document.getElementById('event-filter-error');
 function restoreEventFilters(){
  try{eventFilters=parseEventFilters(Object.fromEntries(new URLSearchParams(location.search)));filterError.textContent='';}
@@ -1296,7 +1299,7 @@ document.querySelectorAll('[data-format]').forEach(button=>button.addEventListen
 window.addEventListener('popstate',()=>{if(eventResetControls.busy)return;restoreEventFilters();menuEvents.click();});
 const eventResetControls = createEventResetControls(afterReset => loadEvents(afterReset));
 let eventsLoadVersion = 0;
-let refreshTrendAfterLoad=false,refreshPeriodAfterLoad=false;
+let refreshTrendAfterLoad=false,refreshPeriodAfterLoad=false,refreshBestFourAfterLoad=false;
 function renderLoadedEvents(){
   if(loadedEvents===null)return;
   const list=document.getElementById('event-list');
@@ -1318,8 +1321,10 @@ async function loadEvents(afterReset = false) {
   clearTimeout(eventAnalysisTimer);eventAnalysisTimer=null;
   refreshTrendAfterLoad ||= pendingTrend||!document.getElementById('deck-trends').hidden;pendingTrend=false;
   refreshPeriodAfterLoad ||= pendingPeriod||!document.getElementById('deck-period-summary').hidden;pendingPeriod=false;
+  refreshBestFourAfterLoad ||= pendingBestFour||!document.getElementById('best-four-summary').hidden;pendingBestFour=false;
   deckTrendControls.clear();
   deckPeriodControls.clear();
+  bestFourControls.clear();
   const version = ++eventsLoadVersion;
   loadedEvents=null;
   eventResetControls.beginLoad();
@@ -1364,7 +1369,8 @@ async function loadEvents(afterReset = false) {
     renderLoadedEvents();
     if(refreshTrendAfterLoad)void deckTrendControls.load();
     if(refreshPeriodAfterLoad)void deckPeriodControls.load();
-    refreshTrendAfterLoad=false;refreshPeriodAfterLoad=false;
+    if(refreshBestFourAfterLoad)void bestFourControls.load();
+    refreshTrendAfterLoad=false;refreshPeriodAfterLoad=false;refreshBestFourAfterLoad=false;
 
   } catch (error) {
     if (version !== eventsLoadVersion) return;

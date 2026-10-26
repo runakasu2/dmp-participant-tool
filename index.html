@@ -350,9 +350,15 @@
       <details class="event-analysis-tools"><summary>期間の集計・表示について</summary>
       <p class="hint">母数・推移の集計は、大会名・期間・フォーマットの条件に一致するすべての大会が対象です。</p>
         <button type="button" id="show-deck-period">期間母数を見る</button>
+        <button type="button" id="show-best-four" aria-controls="best-four-summary">ベスト4使用率を見る</button>
         <button type="button" id="show-deck-trends">母数推移を見る</button>
       <p class="hint">大会詳細・大会名から形式を判定できない大会は、フォーマット別一覧には表示されません。</p>
       </details>
+      <section id="best-four-summary" hidden>
+        <div class="analysis-panel-header"><h2>ベスト4使用率</h2><button type="button" id="close-best-four" aria-controls="best-four-summary" aria-label="ベスト4使用率を閉じる">閉じる</button></div>
+        <p id="best-four-status" role="status" style="white-space:pre-line"></p>
+        <div class="table-scroll"><table><thead><tr><th>順位</th><th>デッキ名</th><th>入賞数</th><th>使用率</th></tr></thead><tbody id="best-four-rows"></tbody></table></div>
+      </section>
       <section id="deck-period-summary" hidden>
         <div class="analysis-panel-header">
           <h2>期間母数</h2>
@@ -879,6 +885,7 @@
   <script src="event-filters.js"></script>
   <script src="deck-trend-ui.js"></script>
   <script src="deck-period-ui.js"></script>
+  <script src="best-four-ui.js"></script>
   <script src="provisional-results-ui.js"></script>
   <script src="script.js"></script>
   <script src="saved-list-pager.js"></script>
