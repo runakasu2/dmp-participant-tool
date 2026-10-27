@@ -12,6 +12,18 @@ const {tcgUrl,sugaUrl,providerFetch}=require('./helpers/three-provider-fixtures'
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_EXECUTABLE||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+  async function saveDeck(row,value){
+   const pending=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/deck-memo'&&r.request().method()==='PUT');
+   await row.locator('select').selectOption(value);
+   const response=await pending,body=response.request().postDataJSON(),result=await response.json();
+   assert.ok(response.ok()&&result.success);assert.equal(result.deckId,Number(value));
+   await row.locator('small[data-save-state="saved"]').waitFor();
+   assert.equal(await row.locator('small').textContent(),'✓');
+   assert.match(await row.locator('small').getAttribute('aria-label'),/登録済み/);
+   const table=body.dmpId?'deck_memos':'deck_memo_external_players',column=body.dmpId?'dmp_id':'participant_key';
+   const saved=await f.db.query('SELECT deck_id FROM '+table+' WHERE memo_event_id=$1 AND '+column+'=$2',[body.memoEventId,body.dmpId||body.participantKey]);
+   assert.equal(saved.rows[0].deck_id,Number(value));
+  }
   await page.goto('http://127.0.0.1:'+server.address().port);
   for(const width of [375,390,430,768,1440])for(const provider of ['tcg_meister','sugatool']){
    await page.setViewportSize({width,height:900});await page.locator('#menu-deck-memo').click();
@@ -22,8 +34,8 @@ const {tcgUrl,sugaUrl,providerFetch}=require('./helpers/three-provider-fixtures'
    await page.locator('#matching-save').click();await page.waitForFunction(()=>document.querySelector('#memo-status').textContent.includes('保存済み対戦表'));
    assert.equal(await page.locator('#memo-round option').count(),provider==='tcg_meister'?4:3);
    const first=page.locator('#memo-list tr').first(),name=await first.locator('summary').innerText();
-   await first.locator('select').selectOption('1');await page.waitForFunction(()=>document.querySelector('#memo-list small').textContent==='保存しました');
-   if(provider==='sugatool'){const unknown=page.locator('#memo-list tr').filter({has:page.locator('td').filter({hasText:/^未取得$/})});await unknown.locator('select').selectOption('2');await page.waitForFunction(()=>[...document.querySelectorAll('#memo-list small')].filter(el=>el.textContent==='保存しました').length===2);}
+   await saveDeck(first,'1');
+   if(provider==='sugatool'){const unknown=page.locator('#memo-list tr').filter({has:page.locator('td').filter({hasText:/^未取得$/})});await saveDeck(unknown,'2');}
    await page.locator('#memo-round').selectOption('1');
    if(provider==='tcg_meister')assert.equal(await page.getByRole('combobox',{name:name+'の使用デッキ',exact:true}).inputValue(),'1');
    else{assert.equal(await page.locator('#memo-list tr').first().locator('select').inputValue(),'1');assert.equal(await page.locator('#memo-list tr').nth(1).locator('select').inputValue(),'2');}

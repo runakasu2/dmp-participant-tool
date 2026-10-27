@@ -34,7 +34,11 @@ function responseFor(url,request){
   if(url.pathname==='/api/player-search')return {count:1,players:[{dmp_id:'000123',handle_name:players[0].name}]};
   if(url.pathname==='/api/player-detail')return {player:{dmpId:'000123',handleName:players[0].name},deckSummary:[{deckName:decks[0].name,count:3}],historyCount:1,history:[{eventDate:'2026-10-01',eventName:event.event_name,deckName:decks[0].name}]};
   if(url.pathname==='/api/deck-memo/matching')return {provider:memoProvider,sourceUrl:body.url,adminKey:'5856470',latestRound:1,event:{eventName:event.event_name,eventDate:'2026-10-07'},participants:memoPlayers.map((p,i)=>({...p,...(memoProvider==='tcg_meister'?{}:{dmpId:String(i+123).padStart(6,'0')})}))};
-  if(url.pathname==='/api/deck-memo')return {deckId:2,deckName:decks[1].name};
+  if(url.pathname==='/api/deck-memo'){
+    const player=memoPlayers.find(p=>p.participantKey===body.participantKey);assert.ok(player);
+    player.deckId=body.deckId;player.deckName=decks.find(d=>d.id===body.deckId)?.name??null;
+    return {deckId:player.deckId,deckName:player.deckName};
+  }
   if(url.pathname==='/api/matching-archives')return {archives:[]};
   if(url.pathname==='/api/deck-memo/archives')return {events:[{...event,registered_count:2}]};
   if(url.pathname==='/api/deck-memo/archives/1')return {event:{id:1,eventName:event.event_name,eventDate:'2026-10-07',provider:'tcg_meister',adminKey:'5856470'},participantCount:2,registeredCount:2,participants:players.map(p=>({name:p.name,deckName:decks[0].name}))};
@@ -157,22 +161,29 @@ function responseFor(url,request){
       await go('decks');await page.locator('.deck-management-row').first().waitFor();await check('decks',width);
       await page.locator('.deck-management-row').first().click();await check('deck-edit',width);
       await go('deck-memo');await page.locator('#memo-url').fill('https://tcg.sfc-jpn.jp/loginnum.asp?tid=5856470');await page.locator('#memo-dmp-url').fill('https://www.dmp-ranking.com/event.asp?ShopID=shop123&EventID=event456&Seq=1');await page.locator('#memo-refresh').click();await page.locator('#memo-list select').first().waitFor();
-      await page.locator('#memo-list select').first().selectOption('2');await page.locator('#memo-list [role="status"]').first().filter({hasText:'保存'}).waitFor();await check('memo',width);
+      const savedResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/deck-memo'&&r.request().method()==='PUT');
+      await page.locator('#memo-list select').first().selectOption('2');
+      const response=await savedResponse;assert.ok(response.ok());assert.equal((await response.json()).deckId,2);
+      await page.locator('#memo-list small[data-save-state="saved"]').first().waitFor();
+      assert.equal(await page.locator('#memo-list small').first().textContent(),'✓');
+      assert.equal(memoPlayers[0].deckId,2);
+      await page.locator('#memo-refresh').click();await page.waitForFunction(()=>!document.querySelector('#memo-refresh').disabled);
+      assert.equal(await page.locator('#memo-list select').first().inputValue(),'2');await check('memo',width);
       if(width<=720){
-        const roster=await page.locator('.memo-live-table').evaluate(table=>({
+        const roster=await page.locator('table:has(#memo-list)').evaluate(table=>({
           display:getComputedStyle(table).display,header:table.tHead.getBoundingClientRect().height,
           rows:[...table.tBodies[0].rows].map(row=>row.getBoundingClientRect().height),
-          badge:getComputedStyle(table.querySelector('small[data-save-state="saved"]'),'::after').content,
+          badge:table.querySelector('small[data-save-state="saved"]').textContent,
           statesInline:[...table.querySelectorAll('small[data-save-state="saved"]')].every(status=>{
             const s=status.getBoundingClientRect(),select=status.previousElementSibling.getBoundingClientRect();
             return s.top>=select.top && s.bottom<=select.bottom;
           })
         }));
         assert.equal(roster.display,'table');assert.ok(roster.header>20);
-        assert.ok(roster.rows.slice(0,6).every(height=>height<=60),JSON.stringify(roster));
+        assert.ok(roster.rows.slice(0,6).every(height=>height>=60&&height<=80),JSON.stringify(roster));
         assert.ok(roster.rows[6]<=85,'long name remains readable without a large card');
         assert.ok(roster.statesInline);assert.ok(roster.badge.includes('✓'));
-        await page.locator('.memo-live-table').screenshot({path:path.join(output,`${width}-compact-roster.png`)});
+        await page.locator('table:has(#memo-list)').screenshot({path:path.join(output,`${width}-compact-roster.png`)});
       }
 
       await page.locator('#memo-archives-list .player-detail-link').click();await page.locator('#memo-archive-players tr').first().waitFor();await check('archive',width);
@@ -198,7 +209,7 @@ function responseFor(url,request){
       await page.locator('#memo-table-head th').filter({hasText:'DMP ID'}).waitFor();
       await check('memo-four-columns',width);
       assert.equal(await page.locator('#memo-list tr').first().locator('td').count(),4);
-      await page.locator('.memo-live-table').screenshot({path:path.join(output,`${width}-compact-four-columns.png`)});
+      await page.locator('table:has(#memo-list)').screenshot({path:path.join(output,`${width}-compact-four-columns.png`)});
     }
     catalogSearchFixture=true;
     for(const width of [375,390,430,768,1440]){

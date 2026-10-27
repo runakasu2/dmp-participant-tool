@@ -153,3 +153,34 @@ test('all memo providers use event format; standalone provider fallback and save
   assert.equal(select.value,'2');
  }
 });
+
+for(const provider of ['sugatool','nojigiku','tcg_meister'])test(provider+' sync uses canonical storage, preserves refresh and explicit unselection',async()=>{
+ const elements=new Map();let stored=1,external=2,memoId=7,source,queued;const stateRequests=[];
+ const context=vm.createContext({Event:class {constructor(type){this.type=type;}},document:{addEventListener(){},dispatchEvent(){},getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();}},hideAllPages(){},clearActiveMenus(){},fetch:async(url,options)=>{
+  let data;
+  if(url.startsWith('/api/decks'))data={decks:[{id:1,name:'A'},{id:2,name:'B'}]};
+  else if(url.startsWith('/api/deck-memo/state')){
+   stateRequests.push(url);
+   data={players:[...(stored===null?[]:[{dmp_id:'101',participant_key:null,deck_id:stored,deck_name:'A'}]),{dmp_id:'101',participant_key:'entry',deck_id:provider==='tcg_meister'?external:null,deck_name:'B'},{dmp_id:null,participant_key:'unknown',deck_id:external,deck_name:'B'}]};
+  }else if(url==='/api/deck-memo'){
+   const body=JSON.parse(options.body);assert.equal(body.memoEventId,memoId);
+   if(provider==='tcg_meister'||!body.dmpId)external=body.deckId;else stored=body.deckId;
+   data={deckId:body.deckId,deckName:body.deckId?'A':null};
+  }else data={provider,memoEventId:memoId,sourceUrl:'https://example.test',latestRound:1,participants:[{dmpId:'101',participantKey:'entry',name:'P',table:1,deckId:provider==='tcg_meister'?external:stored},{dmpId:null,participantKey:'unknown',memoExternal:true,name:'Q',table:1,deckId:external}]};
+  return {ok:true,json:async()=>({success:true,...data})};
+ }});
+ context.ResizeObserver=class {observe(){}};
+ context.EventSource=class {constructor(){source=this;this.handlers={};}addEventListener(name,fn){this.handlers[name]=fn;}close(){}};
+ context.setTimeout=fn=>{queued=fn;return 1;};context.clearTimeout=()=>{};
+ for(const path of ['deck-select.js','saved-list-pager.js','deck-memo-ui.js'])vm.runInContext(fs.readFileSync(path,'utf8'),context);
+ const refresh=elements.get('memo-refresh'),manual=elements.get('memo-manual-refresh');
+ const select=i=>elements.get('memo-list').children[i].children[provider==='tcg_meister'?2:3].children[0];
+ await refresh.handlers.click();source.handlers.ready();queued();await new Promise(setImmediate);
+ assert.ok(stateRequests.length>0);
+ assert.equal(select(0).value,provider==='tcg_meister'?'2':'1');assert.equal(select(1).value,'2');
+ await refresh.handlers.click();source.handlers.ready();queued();await new Promise(setImmediate);assert.equal(select(0).value,provider==='tcg_meister'?'2':'1');
+ select(0).value='';await select(0).handlers.change();await manual.handlers.click();assert.equal(select(0).value,'');
+ await refresh.handlers.click();await manual.handlers.click();assert.equal(select(0).value,'');
+ select(1).value='1';await select(1).handlers.change();await refresh.handlers.click();await manual.handlers.click();assert.equal(select(1).value,'1');
+ memoId=8;await refresh.handlers.click();await manual.handlers.click();assert.ok(stateRequests.at(-1).endsWith('=8'));
+});

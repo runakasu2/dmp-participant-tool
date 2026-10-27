@@ -4,10 +4,12 @@ function installMemoSync(app, pool) {
   async function snapshot(id) {
     const event = (await pool.query('SELECT id,event_record_id FROM deck_memo_events WHERE id=$1', [id])).rows[0];
     if (!event) return {success:true,deleted:true,players:[]};
+    // External rows with verified DMP IDs are roster metadata, except for TCG's key-based memos.
     const result = await pool.query(`SELECT m.dmp_id, NULL::text AS participant_key,m.deck_id,d.name AS deck_name
       FROM deck_memos m LEFT JOIN decks d ON d.id=m.deck_id WHERE m.memo_event_id=$1
       UNION ALL SELECT p.dmp_id,p.participant_key,p.deck_id,d.name AS deck_name
       FROM deck_memo_external_players p LEFT JOIN decks d ON d.id=p.deck_id WHERE p.memo_event_id=$1
+        AND (p.dmp_id IS NULL OR EXISTS (SELECT 1 FROM deck_memo_events e WHERE e.id=p.memo_event_id AND e.source='tcg_meister'))
       ORDER BY participant_key NULLS FIRST,dmp_id`, [id]);
     return {success:true,players:result.rows};
   }

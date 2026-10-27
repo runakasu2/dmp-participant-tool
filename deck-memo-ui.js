@@ -65,10 +65,11 @@ function normalizeMemoMatching(matching) {
       const data=await getJson('/api/deck-memo/state?memoEventId='+loaded.memoEventId,{cache:'no-store'});
       if(current!==loaded||version!==generation)return;
       if(saving){syncAgain=true;return;}
-      const byDmp=new Map(data.players.filter(p=>p.dmp_id).map(p=>[String(p.dmp_id),p]));
+      // Match the write routes: DMP memos for DMP players, external keys for TCG/unknown IDs.
+      const byDmp=new Map(data.players.filter(p=>p.dmp_id&&!p.participant_key).map(p=>[String(p.dmp_id),p]));
       const byKey=new Map(data.players.filter(p=>p.participant_key).map(p=>[p.participant_key,p]));
       for(const p of [...loaded.participants,...(loaded.rounds||[]).flatMap(r=>r.participants)]){
-        const saved=p.participantKey?byKey.get(p.participantKey)||byDmp.get(String(p.dmpId)):byDmp.get(String(p.dmpId));
+        const saved=loaded.provider==='tcg_meister'||!p.dmpId?byKey.get(p.participantKey):byDmp.get(String(p.dmpId));
         p.deckId=saved?.deck_id??null;p.deckName=saved?.deck_name??null;
       }
       updateBindings();updateSummary();syncStatus.textContent=data.deleted?'メモは削除されています。対戦表を再取得してください。':'更新しました。';
