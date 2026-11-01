@@ -740,6 +740,7 @@ await pool.query(`
 
       await pool.query(require("node:fs").readFileSync(
         require("node:path").join(__dirname, "migrations/014_rps_ties.sql"), "utf8"));
+      await pool.query(require("node:fs").readFileSync(require("node:path").join(__dirname,"migrations/015_table_deck_drafts.sql"),"utf8"));
 
       res.json({
         success: true,
@@ -2291,6 +2292,7 @@ app.post("/api/decks/:id/merge", async (req, res) => {
 
 installRpsRoutes(app, pool);
 
+require(require("node:path").join(__dirname, "table-deck-drafts.js")).installDraftRoutes(app, pool);
 require(require("node:path").join(__dirname, "deck-memo.js")).installMemoRoutes(app, pool, globalThis.fetch, fetchEventDetail);
 require(require("node:path").join(__dirname, "deck-memo-archives.js")).installArchiveRoutes(app, pool);
 

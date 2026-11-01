@@ -26,6 +26,7 @@ function normalizeMemoMatching(matching) {
   let openedArchive = null;
   const resetArchive = document.getElementById('memo-archive-reset');
   let selects = [];
+  let refreshDraftControls=async()=>{};
   const refresh = document.getElementById('memo-refresh');
   const status = document.getElementById('memo-status');
   const summary = document.getElementById('memo-summary');
@@ -72,7 +73,7 @@ function normalizeMemoMatching(matching) {
         const saved=loaded.provider==='tcg_meister'||!p.dmpId?byKey.get(p.participantKey):byDmp.get(String(p.dmpId));
         p.deckId=saved?.deck_id??null;p.deckName=saved?.deck_name??null;
       }
-      updateBindings();updateSummary();syncStatus.textContent=data.deleted?'メモは削除されています。対戦表を再取得してください。':'更新しました。';
+      updateBindings();await refreshDraftControls();updateSummary();syncStatus.textContent=data.deleted?'メモは削除されています。対戦表を再取得してください。':'更新しました。';
     }catch(error){if(current===loaded)syncStatus.textContent=error.message;}
     finally{syncBusy=false;manual.disabled=!current?.memoEventId;if(syncAgain&&!saving&&!pairingBusy&&!archiveBusy){syncAgain=false;queueSync();}}
   }
@@ -81,7 +82,7 @@ function normalizeMemoMatching(matching) {
     if(typeof EventSource==='undefined'||!current?.memoEventId||page.style.display==='none')return;
     stream=new EventSource('/api/deck-memo/events?memoEventId='+current.memoEventId);
     stream.addEventListener('ready',queueSync);
-    stream.addEventListener('change',event=>{try{const data=JSON.parse(event.data);if(data.origin===clientId&&!saving&&data.players&&current){const byKey=new Map(data.players.map(p=>[p.participant_key?'key:'+p.participant_key:'dmp:'+p.dmp_id,p]));if([...current.participants,...(current.rounds||[]).flatMap(r=>r.participants)].every(p=>{const saved=byKey.get(identity(p));return (saved?.deck_id??null)===(p.deckId??null)&&(saved?.deck_name??null)===(p.deckName??null);}))return;}}catch{}queueSync();});
+    stream.addEventListener('change',event=>{try{const data=JSON.parse(event.data);if(data.origin===clientId&&!saving&&data.players&&!data.drafts&&current){const byKey=new Map(data.players.map(p=>[p.participant_key?'key:'+p.participant_key:'dmp:'+p.dmp_id,p]));if([...current.participants,...(current.rounds||[]).flatMap(r=>r.participants)].every(p=>{const saved=byKey.get(identity(p));return (saved?.deck_id??null)===(p.deckId??null)&&(saved?.deck_name??null)===(p.deckName??null);}))return;}}catch{}queueSync();});
     stream.onerror=()=>{syncStatus.textContent='接続を復旧中…（手動更新も利用できます）';};
   }
   manual.addEventListener('click',()=>refreshState());
@@ -200,6 +201,13 @@ function normalizeMemoMatching(matching) {
       cell.append(select, saved); row.appendChild(cell); destination.appendChild(row);
     }
     updateSummary();
+    const renderedBindings=bindings;
+    refreshDraftControls=async()=>{if(typeof window==='undefined'||!window.attachTableDrafts||current!==loaded||bindings!==renderedBindings)return;
+      await window.attachTableDrafts({loaded,visible,round:displayRound??loaded.latestRound,bindings,decks,
+      isCurrent:()=>current===loaded&&bindings===renderedBindings,
+      busy:()=>saving>0||archiveBusy||pairingBusy,
+      reload:async()=>{await refreshState();if(current===loaded)render(deckCatalog);}});};
+    void refreshDraftControls();
   }
   async function load() {
     if (refresh.disabled || saving || archiveBusy || pairingBusy) return;

@@ -873,3 +873,24 @@ table.compact-player-table { display: block !important; width: 100% !important; 
   #best-four-summary th:first-child { width: 30px; }
   #best-four-summary th:nth-last-child(-n+2) { width: 56px; }
 }
+/* Table drafts add only compact, inline controls to normal rows. */
+#page-deck-memo .memo-draft-actions { display:inline-flex; gap:3px; flex-shrink:0; vertical-align:middle; }
+#page-deck-memo .memo-draft-actions button { min-height:30px; min-width:30px; padding:2px 5px; margin:0; font-size:11px; line-height:1.1; border:1px solid #78988d; border-radius:5px; background:transparent; color:#31574a; white-space:nowrap; }
+#page-deck-memo .memo-draft-toggle[aria-pressed="true"] { background:#e9dca8; border-color:#896b17; color:#594300; font-weight:bold; }
+#page-deck-memo .memo-draft-actions button:disabled { opacity:.45; }
+.memo-draft-dialog { width:min(420px,calc(100vw - 36px)); box-sizing:border-box; max-height:80vh; overflow:auto; border:1px solid #78988d; border-radius:10px; padding:16px; }
+.memo-draft-dialog::backdrop { background:#0005; }
+.memo-draft-dialog select { width:100%; margin:8px 0; min-height:40px; }
+.memo-draft-dialog button { min-height:40px; margin:5px; }
+@media(max-width:600px) {
+ #page-deck-memo .memo-live-table > tbody > tr > td:last-child { display:flex; align-items:center; gap:3px; }
+ #page-deck-memo .memo-live-table > tbody > tr > td:last-child select { flex:1; min-width:0; width:0; }
+ #page-deck-memo .memo-draft-actions button { min-height:32px; }
+}
+#page-deck-memo .memo-live-table td:last-child { white-space:nowrap; }
+#page-deck-memo .memo-live-table td:last-child:has(.memo-draft-actions) select { width:calc(100% - 112px); min-width:0; }
+@media(max-width:720px) {
+ #page-deck-memo .memo-live-table:has(th:nth-child(4)) th:nth-child(2) { width:44px; }
+ #page-deck-memo .memo-live-table:has(th:nth-child(4)) th:nth-last-child(2) { width:22%; }
+ #page-deck-memo .memo-live-table th:nth-last-child(2) { width:28%; }
+}

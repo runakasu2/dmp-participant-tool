@@ -216,17 +216,7 @@ function installMemoRoutes(app, pool, fetchImpl = fetch, fetchEventDetail = null
         ? await client.query("SELECT id FROM deck_memo_events WHERE source = $2 AND admin_key = $1 AND event_record_id IS NULL", [adminKey,source.provider])
         : await client.query("SELECT id FROM deck_memo_events WHERE source = $3 AND admin_key = $1 AND id = $2", [adminKey, memoEventId,source.provider]);
       if (!event.rows.length) throw fail('先に最新の対戦表を取得してください。', 404);
-      if (deckId === null) {
-        await client.query('DELETE FROM deck_memos WHERE memo_event_id = $1 AND dmp_id = $2', [event.rows[0].id, dmpId]);
-      } else {
-        await client.query(`
-          INSERT INTO deck_memos (memo_event_id, dmp_id, player_id, deck_id)
-          VALUES ($1::integer, $2::varchar(50),
-            (SELECT id FROM players WHERE dmp_id = $2::varchar(50)), $3::integer)
-          ON CONFLICT (memo_event_id, dmp_id) DO UPDATE SET
-            deck_id = EXCLUDED.deck_id, player_id = EXCLUDED.player_id, updated_at = CURRENT_TIMESTAMP
-        `, [event.rows[0].id, dmpId, deckId]);
-      }
+      await require('./memo-write').writeDmpMemo(client,event.rows[0].id,dmpId,deckId);
       await client.query('COMMIT'); active = false;
       res.json({success: true, deckId: deck?.id ?? null, deckName: deck?.name ?? null});
     } catch (error) {

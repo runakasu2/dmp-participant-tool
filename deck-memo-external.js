@@ -32,8 +32,7 @@ async function updateExternalMemo(pool,source,body) {
     if(!['tcg_meister','sugatool','nojigiku'].includes(source.provider))throw fail('提供元が不正です。');
     const event=await client.query(`SELECT id FROM deck_memo_events WHERE id=$1 AND source=$3 AND admin_key=$2 FOR UPDATE`,[memoEventId,source.adminKey||source.tid,source.provider]);
     if(!event.rows.length) throw fail('メモ大会が見つかりません。',404);
-    const result=await client.query(`UPDATE deck_memo_external_players SET deck_id=$3,updated_at=CURRENT_TIMESTAMP
-      WHERE memo_event_id=$1 AND participant_key=$2 RETURNING participant_key`,[memoEventId,participantKey,deckId]);
+    const result=await require('./memo-write').writeExternalMemo(client,memoEventId,participantKey,deckId);
     if(!result.rows.length) throw fail('参加者が見つかりません。再取得してください。',404);
     await client.query('COMMIT');active=false;
     return {success:true,deckId:deck?.id??null,deckName:deck?.name??null};

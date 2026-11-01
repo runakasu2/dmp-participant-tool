@@ -11,7 +11,8 @@ function installMemoSync(app, pool) {
       FROM deck_memo_external_players p LEFT JOIN decks d ON d.id=p.deck_id WHERE p.memo_event_id=$1
         AND (p.dmp_id IS NULL OR EXISTS (SELECT 1 FROM deck_memo_events e WHERE e.id=p.memo_event_id AND e.source='tcg_meister'))
       ORDER BY participant_key NULLS FIRST,dmp_id`, [id]);
-    return {success:true,players:result.rows};
+    const drafts=await pool.query('SELECT * FROM deck_memo_table_drafts WHERE memo_event_id=$1 ORDER BY round,id',[id]);
+    return {success:true,players:result.rows,drafts:drafts.rows};
   }
   app.get('/api/deck-memo/state', async(req,res)=>{
     const id=Number(req.query.memoEventId);
@@ -56,7 +57,7 @@ function installMemoSync(app, pool) {
             for(const connection of connections){
               if(!channels.has(connection.res)||state===connection.state)continue;
               connection.state=state;
-              if(!connection.res.write('event: change\ndata: '+JSON.stringify({origin:source,players:JSON.parse(state).players})+'\n\n'))connection.res.destroy();
+              if(!connection.res.write('event: change\ndata: '+JSON.stringify({origin:source,players:JSON.parse(state).players,drafts:JSON.parse(state).drafts})+'\n\n'))connection.res.destroy();
             }
           }catch{for(const connection of connections)connection.res.end();}
         }
