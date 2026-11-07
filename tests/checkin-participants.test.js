@@ -86,3 +86,30 @@ test('migration preserves unknown overrides, enforces deck references and permit
   await db.query("DELETE FROM checkin_predictions WHERE shop_id='s' AND event_id='e' AND seq='1'");assert.equal((await db.query('SELECT * FROM checkin_predictions')).rows.length,0);
  }finally{await db.close();}
 });
+test('full external roster confirms non-checked-in DMP entrants, while only check-ins add day-of entrants',async()=>{
+ const r=await fetchCheckins(suga,async()=>response([entry('1',{isReception:false}),entry('2',{isReception:false,entryStatus:'waitlisted'}),entry('4',{isReception:false}),entry('5',{entryStatus:'unknown'})]));
+ assert.equal(r.participants.length,1);assert.equal(r.statusParticipants.length,4);
+ const prediction={finalDeckName:'A',source:'manual'};
+ const base=[{id:'1',prediction},{id:'2'},{id:'3'}];
+ const merged=mergeCheckins(base,r.participants,r.statusParticipants);
+ assert.deepEqual(merged.map(p=>p.id),['1','2','3','5']);
+ assert.deepEqual(merged.map(p=>p.confirmed),[true,false,null,null]);
+ assert.equal(merged[0].checkedIn,false);assert.equal(merged[0].prediction,prediction);
+ assert.deepEqual(predictionTargets(merged,true).map(p=>p.id),['1']);
+ assert.equal(predictionTargets(merged).length,4);assert.equal(base[0].confirmed,undefined);
+});
+test('Nojigiku confirmation is explicit and independent of check-in/payment; name matches never confirm DMP players',async()=>{
+ const r=await fetchCheckins(noji,async()=>response({users:[{id:1,name:'同名',checkedIn:true,confirmed:false,paid:true},{id:2,name:'確定',checkedIn:true,confirmed:true,paid:false},{id:3,name:'不明',checkedIn:true,paid:true}]}));
+ const merged=mergeCheckins([{id:'1',name:'同名'}],r.participants,r.statusParticipants);
+ assert.equal(merged[0].confirmed,null);assert.deepEqual(predictionTargets(merged,true).map(p=>p.name),['確定']);
+});
+test('status refresh removes stale confirmation and filtering preserves predictions and histories',()=>{
+ const prediction={finalDeckName:'B',source:'manual'},recentDecks=[{deckName:'A'}];
+ const base=[{id:'1',prediction,recentDecks},{id:'2'}];
+ const first=mergeCheckins(base,[{id:'1',confirmed:true,checkedIn:true},{id:'3',confirmed:true,checkedIn:true}]);
+ assert.equal(predictionTargets(first,true).length,2);
+ assert.equal(predictionTargets(first).length,3);
+ assert.equal(predictionTargets(first)[0].prediction,prediction);assert.equal(first[0].recentDecks,recentDecks);
+ const updated=mergeCheckins(base,[]);assert.equal(predictionTargets(updated,true).length,0);assert.equal(updated[0].prediction,prediction);
+ const summary=buildPredictionSummary(predictionTargets(first,true));assert.equal(summary.participantCount,2);assert.equal(summary.unknownCount,1);assert.equal(summary.decks[0].percentage,'50.0');
+});

@@ -9,7 +9,7 @@ function currentPredictionTargets(){
 }
 function renderCheckinCounts(){
  const node=document.getElementById('checkin-counts');
- if(node)node.textContent=`DMP参加表明者：${dmpPredictionParticipants.length}人 ／ 当日枠：${predictionParticipants.filter(p=>p.dayOf).length}人 ／ チェックイン済み・参加未確定（状態不明を含む）：${predictionParticipants.filter(p=>p.checkedIn&&p.confirmed!==true).length}人 ／ 母数予想対象：${currentPredictionTargets().length}人`;
+ if(node)node.textContent=`DMP参加表明者：${dmpPredictionParticipants.length}人 ／ 当日枠：${predictionParticipants.filter(p=>p.dayOf).length}人 ／ 参加確定者：${predictionParticipants.filter(p=>p.confirmed===true).length}人 ／ 参加未確定・未確認者：${predictionParticipants.filter(p=>p.confirmed!==true).length}人 ／ 母数予想対象：${currentPredictionTargets().length}人`;
 }
 
 
@@ -3129,12 +3129,14 @@ deckNameInput.addEventListener(
 
 if(new URLSearchParams(location.search).has("format")||new URLSearchParams(location.search).has("startDate")||new URLSearchParams(location.search).has("endDate"))menuEvents.click();
 
-function renderParticipantRows(data) {
+function renderParticipantRows() {
+ const data={decks:predictionDecks,format:participantEvent?.format};
+ if(!participantEvent)return;
  const {shopId,eventId,seq}=participantEvent;
  const list=document.getElementById('participant-list');
  const displayedParticipants=predictionParticipants;
  list.replaceChildren();
-      predictionParticipants.forEach(
+      currentPredictionTargets().forEach(
         (participant) => {
 
           const row =
@@ -3196,7 +3198,7 @@ function renderParticipantRows(data) {
           });
           if(participant.id != null) nameCell.replaceChildren(playerButton);
           const badge=document.createElement('small');
-          badge.textContent=(participant.dayOf?' 当日枠':' DMP参加表明')+(participant.checkedIn ? (participant.confirmed===true?'・参加確定':participant.confirmed===false?'・参加未確定':'・確定状態不明')+(participant.dropped?'・ドロップ':''):'');
+          badge.textContent=(participant.dayOf?' 当日枠':' DMP参加表明')+(participant.confirmed===true?'・参加確定':participant.confirmed===false?'・参加未確定':'・参加状態未確認');
           nameCell.appendChild(badge);
           row.className = "event-result-player";
           if(participant.id != null) row.addEventListener("click", () => openPlayerDetail(participant.id));
@@ -3215,7 +3217,7 @@ function renderParticipantRows(data) {
 
 
           row.appendChild(createPredictionCell(participant, data.decks, {shopId, eventId, seq, format:data.format}, () => {
-            for(const p of [...dmpPredictionParticipants,...[...checkinSnapshots.values()].flat()]) {
+            for(const p of [...dmpPredictionParticipants,...[...checkinSnapshots.values()].flatMap(snapshot=>snapshot.participants)]) {
               if(participant.id != null ? String(p.id)===String(participant.id) : p.externalKey===participant.externalKey) p.prediction=participant.prediction;
             }
             if (predictionParticipants === displayedParticipants) renderPredictionSummary();
@@ -3228,7 +3230,7 @@ function renderParticipantRows(data) {
       );
 
 }
-document.getElementById('checkin-confirmed-only').addEventListener('change',renderPredictionSummary);
+document.getElementById('checkin-confirmed-only').addEventListener('change',()=>{renderParticipantRows();renderPredictionSummary();});
 document.getElementById('get-checkins').addEventListener('click',async()=>{
  const status=document.getElementById('checkin-load-status'), trigger=document.getElementById('get-checkins');
  if(!participantEvent){status.textContent='先にDMP参加表明者を取得してください。';return;}
@@ -3239,8 +3241,8 @@ document.getElementById('get-checkins').addEventListener('click',async()=>{
   const data=await response.json();if(!response.ok)throw new Error(data.error||'取得に失敗しました。');
   if(generation!==participantGeneration)return;
   const oldKeys=new Set(predictionParticipants.map(p=>p.id!=null?'dmp:'+p.id:p.externalKey));
-  checkinSnapshots.set(data.provider+':'+data.sourceKey,data.participants);
-  predictionParticipants=mergeCheckins(dmpPredictionParticipants,[...checkinSnapshots.values()].flat());
+  checkinSnapshots.set(data.provider+':'+data.sourceKey,{participants:data.participants,statusParticipants:data.statusParticipants||data.participants});
+  predictionParticipants=mergeCheckins(dmpPredictionParticipants,[...checkinSnapshots.values()].flatMap(snapshot=>snapshot.participants),[...checkinSnapshots.values()].flatMap(snapshot=>snapshot.statusParticipants));
   const added=predictionParticipants.filter(p=>!oldKeys.has(p.id!=null?'dmp:'+p.id:p.externalKey)).length;
   renderParticipantRows({...data,decks:predictionDecks,format:participantEvent.format});renderPredictionSummary();
   status.textContent=`取得しました。今回追加：${added}人。`+(data.recentDecksMessage||'');
