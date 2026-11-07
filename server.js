@@ -742,6 +742,8 @@ await pool.query(`
         require("node:path").join(__dirname, "migrations/014_rps_ties.sql"), "utf8"));
       await pool.query(require("node:fs").readFileSync(require("node:path").join(__dirname,"migrations/015_table_deck_drafts.sql"),"utf8"));
 
+      await pool.query(require('node:fs').readFileSync(require('node:path').join(__dirname,'migrations/016_checkin_predictions.sql'),'utf8'));
+
       res.json({
         success: true,
 
@@ -1003,38 +1005,7 @@ async function fetchRecentDecks(dmpIds, {shopId, eventId, seq, eventDate, format
   return histories;
 }
 
-// ========================================
-// DMPランキング参加表明者取得
-// ========================================
-
-app.post(
-  "/api/participants",
-  async (req, res) => {
-    try {
-
-      const {
-        shopId,
-        eventId,
-        seq
-      } = req.body;
-
-      if (
-        !shopId ||
-        !eventId ||
-        !seq
-      ) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-
-            error:
-              "ShopID、EventID、またはSeqがありません。"
-          });
-      }
-
-      const participants = await fetchEventParticipants({shopId, eventId, seq}, globalThis.fetch);
-
+async function enrichPredictionParticipants(participants, {shopId,eventId,seq}) {
       // 同一IDをまとめ、参加者を一括保存する。
       const players = new Map();
       for (const participant of participants) {
@@ -1078,7 +1049,7 @@ app.post(
 
       const predictionData = await loadPredictionData(shopId, eventId, seq);
 
-      res.json({
+      return {
         success: true,
 
         count:
@@ -1094,7 +1065,71 @@ app.post(
           prediction: predictDeck(histories.get(String(participant.id)) || [],
             predictionData.manual.get(String(participant.id)), recentDecksStatus !== "ok")
         }))
-      });
+      };
+}
+
+app.post('/api/checkin-participants', async (req,res)=>{
+ const {shopId,eventId,seq,sourceUrl}=req.body||{};
+ if(![shopId,eventId,seq].every(v=>typeof v==='string'&&v.trim()&&v.length<=100))return res.status(400).json({success:false,error:'先にDMP大会を取得してください。'});
+ try {
+  const external=await require(require('node:path').join(__dirname,'checkin-participants.js')).fetchCheckins(sourceUrl,globalThis.fetch);
+  const known=external.participants.filter(p=>p.id!==null);
+  const enriched=await enrichPredictionParticipants(known,{shopId,eventId,seq});
+  const byId=new Map(enriched.participants.map(p=>[p.id,p]));
+  const saved=await pool.query('SELECT external_key,deck_id,d.name AS deck_name FROM checkin_predictions c LEFT JOIN decks d ON d.id=c.deck_id WHERE shop_id=$1 AND event_id=$2 AND seq=$3',[shopId,eventId,seq]);
+  const manual=new Map(saved.rows.map(r=>[r.external_key,r]));
+  res.json({...enriched,...external,participants:external.participants.map(p=>{
+   if(p.id!==null)return byId.get(p.id);
+   const m=manual.get(p.externalKey);
+   return {...p,recentDecks:[],prediction:predictDeck([],m?{manual_deck_id:m.deck_id,deck_name:m.deck_name}:null)};
+  })});
+ }catch(error){console.error('チェックイン取得エラー:',error);res.status(error.status||502).json({success:false,error:error.message});}
+});
+app.put('/api/checkin-prediction',async(req,res)=>{
+ const {shopId,eventId,seq,externalKey,mode,deckId}=req.body||{};
+ if(![shopId,eventId,seq].every(v=>typeof v==='string'&&v.trim()&&v.length<=100)||typeof externalKey!=='string'||!/^(sugatool|nojigiku):[\w-]{1,100}:[\w-]{1,100}$/.test(externalKey)||!['manual','auto'].includes(mode)||(mode==='manual'&&deckId!==null&&(!Number.isInteger(deckId)||deckId<=0||deckId>2147483647)))return res.status(400).json({success:false,error:'予想の指定が不正です。'});
+ try {
+  if(mode==='auto')await pool.query('DELETE FROM checkin_predictions WHERE shop_id=$1 AND event_id=$2 AND seq=$3 AND external_key=$4',[shopId,eventId,seq,externalKey]);
+  else await pool.query(`INSERT INTO checkin_predictions(shop_id,event_id,seq,external_key,deck_id) VALUES($1,$2,$3,$4,$5)
+    ON CONFLICT(shop_id,event_id,seq,external_key) DO UPDATE SET deck_id=EXCLUDED.deck_id`,[shopId,eventId,seq,externalKey,deckId]);
+  const deck=mode==='manual'&&deckId!==null?await pool.query('SELECT name FROM decks WHERE id=$1',[deckId]):{rows:[]};
+  res.json({success:true,hasManualPrediction:mode==='manual',manualDeckId:mode==='manual'?deckId:null,manualDeckName:deck.rows[0]?.name??null});
+ }catch(error){res.status(500).json({success:false,error:'予想を保存できませんでした。'});}
+});
+
+// ========================================
+// DMPランキング参加表明者取得
+// ========================================
+
+app.post(
+  "/api/participants",
+  async (req, res) => {
+    try {
+
+      const {
+        shopId,
+        eventId,
+        seq
+      } = req.body;
+
+      if (
+        !shopId ||
+        !eventId ||
+        !seq
+      ) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+
+            error:
+              "ShopID、EventID、またはSeqがありません。"
+          });
+      }
+
+      const participants = await fetchEventParticipants({shopId, eventId, seq}, globalThis.fetch);
+
+      res.json(await enrichPredictionParticipants(participants, {shopId,eventId,seq}));
 
     } catch (error) {
       console.error(
@@ -2260,6 +2295,7 @@ app.post("/api/decks/:id/merge", async (req, res) => {
     await client.query("UPDATE decks SET image_url=COALESCE(image_url,$2), updated_at = CURRENT_TIMESTAMP WHERE id = $1", [targetId,source.image_url || null]);
     await client.query(`INSERT INTO deck_formats(deck_id,format)
       SELECT $2,format FROM deck_formats WHERE deck_id=$1 ON CONFLICT DO NOTHING`,[sourceId,targetId]);
+    await client.query('UPDATE checkin_predictions SET deck_id=$1 WHERE deck_id=$2',[targetId,sourceId]);
     await client.query("DELETE FROM decks WHERE id = $1", [sourceId]);
     await client.query("COMMIT");
     inTransaction = false;

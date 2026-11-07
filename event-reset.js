@@ -24,6 +24,8 @@ function installEventResetRoutes(app,pool) {
           WHERE p.memo_event_id=m.id AND m.event_record_id=ANY($1::int[])`,[ids]);
       }
       await client.query('DELETE FROM deck_memo_events WHERE event_record_id=ANY($1::int[])',[ids]);
+      await client.query(`DELETE FROM checkin_predictions c USING events e
+        WHERE e.id=ANY($1::int[]) AND c.shop_id=e.shop_id AND c.event_id=e.event_id AND c.seq=e.seq`,[ids]);
       await client.query('DELETE FROM event_deck_predictions WHERE event_record_id=ANY($1::int[])',[ids]);
       await client.query('DELETE FROM event_results WHERE event_record_id=ANY($1::int[])',[ids]);
       await client.query(`DELETE FROM deck_history h USING events e

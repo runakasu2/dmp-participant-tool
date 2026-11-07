@@ -45,7 +45,7 @@ test('prediction renderer uses the same summary for list and chart on every upda
  const fs=require('node:fs'),vm=require('node:vm');
  const {buildPredictionSummary}=require('../prediction-summary');
  const source=fs.readFileSync('script.js','utf8');let captured;
- const context=vm.createContext({document,buildPredictionSummary,renderDeckPieChart:(container,items,options)=>{captured={items,options};renderDeckPieChart(container,items,options);}});
+ const context=vm.createContext({document,buildPredictionSummary,predictionTargets:require('../checkin-participants').predictionTargets,renderDeckPieChart:(container,items,options)=>{captured={items,options};renderDeckPieChart(container,items,options);}});
  vm.runInContext(source.slice(0,source.indexOf('function createPredictionCell')),context);
  for(const names of [[],[null,null],['A','A'],['A','B',null],['B','B',null],['A','B',null]]){
  context.people=names.map(finalDeckName=>({prediction:{finalDeckName}}));

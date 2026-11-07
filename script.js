@@ -1,8 +1,21 @@
 let predictionParticipants = [];
 let predictionDecks = [];
+let participantEvent = null;
+let dmpPredictionParticipants = [];
+let checkinSnapshots = new Map();
+let participantGeneration = 0;
+function currentPredictionTargets(){
+  return predictionTargets(predictionParticipants, document.getElementById('checkin-confirmed-only')?.checked || false);
+}
+function renderCheckinCounts(){
+ const node=document.getElementById('checkin-counts');
+ if(node)node.textContent=`DMP参加表明者：${dmpPredictionParticipants.length}人 ／ 当日枠：${predictionParticipants.filter(p=>p.dayOf).length}人 ／ チェックイン済み・参加未確定（状態不明を含む）：${predictionParticipants.filter(p=>p.checkedIn&&p.confirmed!==true).length}人 ／ 母数予想対象：${currentPredictionTargets().length}人`;
+}
+
 
 function renderPredictionSummary() {
-  const summary = buildPredictionSummary(predictionParticipants, predictionDecks);
+  renderCheckinCounts();
+  const summary = buildPredictionSummary(currentPredictionTargets(), predictionDecks);
   renderDeckPieChart(document.getElementById('prediction-summary-pie'),
     summary.decks.map(deck=>deck.unknown?{...deck,deckName:'予想不明'}:{...deck,image_url:predictionDecks.find(master=>master.name===deck.deckName)?.image_url}),{total:summary.participantCount});
   const status = document.getElementById("prediction-summary-status");
@@ -10,7 +23,7 @@ function renderPredictionSummary() {
   list.replaceChildren();
   status.replaceChildren();
   status.className = "summary-metrics";
-  for (const [label, value] of [["参加表明者", summary.participantCount + "人"],
+  for (const [label, value] of [["予想対象者", summary.participantCount + "人"],
     ["予想済み", summary.predictedCount + "人"], ["不明", summary.unknownCount + "人"],
     ["予想カバー率", summary.coverage + "%"]]) {
     const metric = document.createElement("div");
@@ -57,9 +70,9 @@ function createPredictionCell(participant, decks, event, onPredictionChanged = (
     select.disabled = save.disabled = reset.disabled = true;
     status.textContent = "保存中...";
     try {
-      const response = await fetch("/api/event-deck-prediction", {
+      const response = await fetch(participant.id == null ? "/api/checkin-prediction" : "/api/event-deck-prediction", {
         method: "PUT", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({...event, dmpId: String(participant.id), mode,
+        body: JSON.stringify({...event, dmpId: participant.id == null ? undefined : String(participant.id), externalKey:participant.externalKey, mode,
           deckId: select.value ? Number(select.value) : null})
       });
       const data = await response.json();
@@ -384,6 +397,7 @@ button.addEventListener(
       }
 
 
+      const loadGeneration=++participantGeneration;
       button.disabled = true;
       button.textContent = "参加者取得中…";
       document.getElementById("participant-load-status").textContent = "参加者を取得しています…";
@@ -486,6 +500,8 @@ button.addEventListener(
       }
 
 
+      if(loadGeneration!==participantGeneration)return;
+
       // --------------------------
       // 参加者一覧表示
       // --------------------------
@@ -501,96 +517,16 @@ button.addEventListener(
 
 
       document.getElementById("participant-format").textContent = "大会フォーマット：" + (DECK_FORMAT_LABELS[data.format] || "不明");
-      predictionParticipants = data.participants;
+      participantGeneration++;
+      participantEvent={shopId,eventId,seq,format:data.format};
+      dmpPredictionParticipants=[...new Map(data.participants.map(p=>[String(p.id),{...p,id:String(p.id),dayOf:false}])).values()];
+      checkinSnapshots.clear();
+      predictionParticipants = dmpPredictionParticipants;
       predictionDecks = data.decks;
       renderPredictionSummary();
-      const displayedParticipants = data.participants;
-
-      data.participants.forEach(
-        (participant) => {
-
-          const row =
-            document.createElement(
-              "tr"
-            );
 
 
-          const idCell =
-            document.createElement(
-              "td"
-            );
-
-          idCell.textContent =
-            participant.id;
-
-
-          const nameCell =
-            document.createElement(
-              "td"
-            );
-
-          nameCell.textContent =
-            participant.name;
-
-
-          const deckCell =
-            document.createElement(
-              "td"
-            );
-
-
-          if (data.recentDecksStatus === "unavailable") {
-            deckCell.textContent = "履歴取得失敗";
-          } else if (!participant.recentDecks?.length) {
-            deckCell.textContent = "履歴なし";
-          } else {
-            const histories = document.createElement("ul");
-            histories.className = "recent-decks";
-            for (const history of participant.recentDecks) {
-              const item = document.createElement("li");
-              const date = document.createElement("small");
-              date.textContent = history.eventDate;
-              item.appendChild(document.createTextNode(history.deckName));
-              item.appendChild(date);
-              item.title = history.eventName || "大会名未登録";
-              histories.appendChild(item);
-            }
-            deckCell.appendChild(histories);
-          }
-          const playerButton = document.createElement("button");
-          playerButton.className = "player-detail-link";
-          playerButton.textContent = participant.name;
-          playerButton.addEventListener("click", event => {
-            event.stopPropagation();
-            openPlayerDetail(participant.id);
-          });
-          nameCell.replaceChildren(playerButton);
-          row.className = "event-result-player";
-          row.addEventListener("click", () => openPlayerDetail(participant.id));
-
-          row.appendChild(
-            idCell
-          );
-
-          row.appendChild(
-            nameCell
-          );
-
-          row.appendChild(
-            deckCell
-          );
-
-
-          row.appendChild(createPredictionCell(participant, data.decks, {shopId, eventId, seq, format:data.format}, () => {
-            if (predictionParticipants === displayedParticipants) renderPredictionSummary();
-          }));
-
-          list.appendChild(
-            row
-          );
-        }
-      );
-
+      renderParticipantRows(data);
 
       document.getElementById(
         "participant-count"
@@ -635,6 +571,11 @@ resetButton.addEventListener(
   "click",
   () => {
     document.getElementById("participant-load-status").textContent = "";
+    participantGeneration++;
+    participantEvent=null;
+    dmpPredictionParticipants=[];
+    checkinSnapshots.clear();
+    document.getElementById('checkin-load-status').textContent='';
     predictionParticipants = [];
     predictionDecks = [];
     document.getElementById("participant-format").textContent = "大会フォーマット：不明";
@@ -3187,3 +3128,122 @@ deckNameInput.addEventListener(
 );
 
 if(new URLSearchParams(location.search).has("format")||new URLSearchParams(location.search).has("startDate")||new URLSearchParams(location.search).has("endDate"))menuEvents.click();
+
+function renderParticipantRows(data) {
+ const {shopId,eventId,seq}=participantEvent;
+ const list=document.getElementById('participant-list');
+ const displayedParticipants=predictionParticipants;
+ list.replaceChildren();
+      predictionParticipants.forEach(
+        (participant) => {
+
+          const row =
+            document.createElement(
+              "tr"
+            );
+
+
+          const idCell =
+            document.createElement(
+              "td"
+            );
+
+          idCell.textContent =
+            participant.id ?? "DMP ID未確認";
+
+
+          const nameCell =
+            document.createElement(
+              "td"
+            );
+
+          nameCell.textContent =
+            participant.name;
+
+
+          const deckCell =
+            document.createElement(
+              "td"
+            );
+
+
+          if (participant.id == null) {
+            deckCell.textContent = "DMP ID未確認のため履歴照合なし";
+          } else if (participant.prediction?.autoStatus === "unavailable") {
+            deckCell.textContent = "履歴取得失敗";
+          } else if (!participant.recentDecks?.length) {
+            deckCell.textContent = participant.id == null ? "DMP ID未確認のため履歴照合なし" : "履歴なし";
+          } else {
+            const histories = document.createElement("ul");
+            histories.className = "recent-decks";
+            for (const history of participant.recentDecks) {
+              const item = document.createElement("li");
+              const date = document.createElement("small");
+              date.textContent = history.eventDate;
+              item.appendChild(document.createTextNode(history.deckName));
+              item.appendChild(date);
+              item.title = history.eventName || "大会名未登録";
+              histories.appendChild(item);
+            }
+            deckCell.appendChild(histories);
+          }
+          const playerButton = document.createElement("button");
+          playerButton.className = "player-detail-link";
+          playerButton.textContent = participant.name;
+          playerButton.addEventListener("click", event => {
+            event.stopPropagation();
+            openPlayerDetail(participant.id);
+          });
+          if(participant.id != null) nameCell.replaceChildren(playerButton);
+          const badge=document.createElement('small');
+          badge.textContent=(participant.dayOf?' 当日枠':' DMP参加表明')+(participant.checkedIn ? (participant.confirmed===true?'・参加確定':participant.confirmed===false?'・参加未確定':'・確定状態不明')+(participant.dropped?'・ドロップ':''):'');
+          nameCell.appendChild(badge);
+          row.className = "event-result-player";
+          if(participant.id != null) row.addEventListener("click", () => openPlayerDetail(participant.id));
+
+          row.appendChild(
+            idCell
+          );
+
+          row.appendChild(
+            nameCell
+          );
+
+          row.appendChild(
+            deckCell
+          );
+
+
+          row.appendChild(createPredictionCell(participant, data.decks, {shopId, eventId, seq, format:data.format}, () => {
+            for(const p of [...dmpPredictionParticipants,...[...checkinSnapshots.values()].flat()]) {
+              if(participant.id != null ? String(p.id)===String(participant.id) : p.externalKey===participant.externalKey) p.prediction=participant.prediction;
+            }
+            if (predictionParticipants === displayedParticipants) renderPredictionSummary();
+          }));
+
+          list.appendChild(
+            row
+          );
+        }
+      );
+
+}
+document.getElementById('checkin-confirmed-only').addEventListener('change',renderPredictionSummary);
+document.getElementById('get-checkins').addEventListener('click',async()=>{
+ const status=document.getElementById('checkin-load-status'), trigger=document.getElementById('get-checkins');
+ if(!participantEvent){status.textContent='先にDMP参加表明者を取得してください。';return;}
+ const generation=participantGeneration;
+ trigger.disabled=true;status.textContent='チェックイン参加者を取得しています…';
+ try {
+  const response=await fetch('/api/checkin-participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...participantEvent,sourceUrl:document.getElementById('checkin-url').value.trim()})});
+  const data=await response.json();if(!response.ok)throw new Error(data.error||'取得に失敗しました。');
+  if(generation!==participantGeneration)return;
+  const oldKeys=new Set(predictionParticipants.map(p=>p.id!=null?'dmp:'+p.id:p.externalKey));
+  checkinSnapshots.set(data.provider+':'+data.sourceKey,data.participants);
+  predictionParticipants=mergeCheckins(dmpPredictionParticipants,[...checkinSnapshots.values()].flat());
+  const added=predictionParticipants.filter(p=>!oldKeys.has(p.id!=null?'dmp:'+p.id:p.externalKey)).length;
+  renderParticipantRows({...data,decks:predictionDecks,format:participantEvent.format});renderPredictionSummary();
+  status.textContent=`取得しました。今回追加：${added}人。`+(data.recentDecksMessage||'');
+ }catch(error){if(generation===participantGeneration)status.textContent='取得失敗：'+error.message;}
+ finally{trigger.disabled=false;}
+});
