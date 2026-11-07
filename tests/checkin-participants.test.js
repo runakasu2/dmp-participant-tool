@@ -11,7 +11,7 @@ const response=data=>new Response(JSON.stringify(data));
 test('Suga reads fixed API; reception, waitlist, drop and confirmation remain independent',async()=>{
  let request;
  const r=await fetchCheckins(suga,async(url,options)=>{request={url,options};return response([entry(),entry('2',{entryStatus:'waitlisted',dropped:true}),entry('3',{isReception:false})]);});
- assert.equal(r.participants.length,2);assert.equal(r.participants[0].id,'001');assert.equal(r.participants[1].confirmed,false);assert.equal(r.participants[1].dropped,true);
+ assert.equal(r.participants.length,2);assert.equal(r.participants[0].id,'001');assert.equal(r.participants[1].confirmed,true);assert.equal(r.participants[1].dropped,true);
  assert.equal(request.url,parseCheckinUrl(suga).api);assert.equal(request.options.redirect,'error');assert.ok(request.options.signal);
 });
 test('Nojigiku internal id never becomes a DMP ID; checked-in unconfirmed is included',async()=>{
@@ -86,22 +86,22 @@ test('migration preserves unknown overrides, enforces deck references and permit
   await db.query("DELETE FROM checkin_predictions WHERE shop_id='s' AND event_id='e' AND seq='1'");assert.equal((await db.query('SELECT * FROM checkin_predictions')).rows.length,0);
  }finally{await db.close();}
 });
-test('full external roster confirms non-checked-in DMP entrants, while only check-ins add day-of entrants',async()=>{
+test('full external roster marks pre-reception DMP entrants unconfirmed and adds received day-of entrants',async()=>{
  const r=await fetchCheckins(suga,async()=>response([entry('1',{isReception:false}),entry('2',{isReception:false,entryStatus:'waitlisted'}),entry('4',{isReception:false}),entry('5',{entryStatus:'unknown'})]));
  assert.equal(r.participants.length,1);assert.equal(r.statusParticipants.length,4);
  const prediction={finalDeckName:'A',source:'manual'};
  const base=[{id:'1',prediction},{id:'2'},{id:'3'}];
  const merged=mergeCheckins(base,r.participants,r.statusParticipants);
  assert.deepEqual(merged.map(p=>p.id),['1','2','3','5']);
- assert.deepEqual(merged.map(p=>p.confirmed),[true,false,null,null]);
+ assert.deepEqual(merged.map(p=>p.confirmed),[false,false,null,true]);
  assert.equal(merged[0].checkedIn,false);assert.equal(merged[0].prediction,prediction);
- assert.deepEqual(predictionTargets(merged,true).map(p=>p.id),['1']);
+ assert.deepEqual(predictionTargets(merged,true).map(p=>p.id),['5']);
  assert.equal(predictionTargets(merged).length,4);assert.equal(base[0].confirmed,undefined);
 });
-test('Nojigiku confirmation is explicit and independent of check-in/payment; name matches never confirm DMP players',async()=>{
+test('Nojigiku payment determines reception independently of entry confirmation and check-in; names never match DMP players',async()=>{
  const r=await fetchCheckins(noji,async()=>response({users:[{id:1,name:'同名',checkedIn:true,confirmed:false,paid:true},{id:2,name:'確定',checkedIn:true,confirmed:true,paid:false},{id:3,name:'不明',checkedIn:true,paid:true}]}));
  const merged=mergeCheckins([{id:'1',name:'同名'}],r.participants,r.statusParticipants);
- assert.equal(merged[0].confirmed,null);assert.deepEqual(predictionTargets(merged,true).map(p=>p.name),['確定']);
+ assert.equal(merged[0].confirmed,null);assert.deepEqual(predictionTargets(merged,true).map(p=>p.name),['同名','不明']);
 });
 test('status refresh removes stale confirmation and filtering preserves predictions and histories',()=>{
  const prediction={finalDeckName:'B',source:'manual'},recentDecks=[{deckName:'A'}];
@@ -112,4 +112,31 @@ test('status refresh removes stale confirmation and filtering preserves predicti
  assert.equal(predictionTargets(first)[0].prediction,prediction);assert.equal(first[0].recentDecks,recentDecks);
  const updated=mergeCheckins(base,[]);assert.equal(predictionTargets(updated,true).length,0);assert.equal(updated[0].prediction,prediction);
  const summary=buildPredictionSummary(predictionTargets(first,true));assert.equal(summary.participantCount,2);assert.equal(summary.unknownCount,1);assert.equal(summary.decks[0].percentage,'50.0');
+});
+test('87 entry-confirmed players produce exactly 80 reception-confirmed targets with histories and manual overrides preserved',async()=>{
+ const rows=Array.from({length:87},(_,i)=>entry(String(i+1),{isReception:i<80,checkInAt:'2026-11-07T01:00:00Z'}));
+ const external=await fetchCheckins(suga,async()=>response(rows));
+ assert.equal(external.statusParticipants.filter(p=>p.entryConfirmed===true).length,87);
+ assert.equal(external.statusParticipants.filter(p=>p.checkedIn===true).length,87);
+ const prediction={finalDeckName:'A',source:'manual'},recentDecks=[{deckName:'B'}];
+ const base=rows.map((r,i)=>({id:r.duemaId,prediction:i<40?prediction:{finalDeckName:null},recentDecks}));
+ const merged=mergeCheckins(base,external.participants,external.statusParticipants);
+ const targets=predictionTargets(merged,true),summary=buildPredictionSummary(targets);
+ assert.equal(merged.length,87);assert.equal(targets.length,80);assert.equal(summary.participantCount,80);
+ assert.equal(summary.decks[0].count,40);assert.equal(summary.decks[0].percentage,'50.0');assert.equal(summary.unknownCount,40);
+ assert.equal(targets[0].prediction,prediction);assert.equal(targets[0].recentDecks,recentDecks);
+ assert.equal(predictionTargets(merged).length,87);
+});
+test('Nojigiku received day-of players are included before check-in; missing payment never confirms',async()=>{
+ const r=await fetchCheckins(noji,async()=>response({users:[
+  {id:1,name:'受付済み',checkedIn:false,confirmed:false,paid:true},
+  {id:2,name:'チェックインのみ',checkedIn:true,confirmed:true,paid:false},
+  {id:3,name:'支払不明',checkedIn:true,confirmed:true}
+ ]}));
+ assert.equal(r.participants.length,3);
+ assert.deepEqual(r.participants.map(p=>p.confirmed),[true,false,null]);
+ assert.deepEqual(r.participants.map(p=>p.entryConfirmed),[false,true,true]);
+ assert.equal(r.participants[0].checkedIn,false);
+ assert.deepEqual(predictionTargets(r.participants,true).map(p=>p.name),['受付済み']);
+ await assert.rejects(fetchCheckins(noji,async()=>response({users:[{id:1,name:'不正',checkedIn:true,paid:'true'}]})),/受付状態/);
 });

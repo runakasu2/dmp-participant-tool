@@ -8,6 +8,9 @@ function currentPredictionTargets(){
   return predictionTargets(predictionParticipants, document.getElementById('checkin-confirmed-only')?.checked || false);
 }
 function renderCheckinCounts(){
+ const targets=currentPredictionTargets();
+ const count=document.getElementById('participant-count');
+ if(count)count.textContent=`表示・集計対象：${targets.length}人（全参加者：${predictionParticipants.length}人）`;
  const node=document.getElementById('checkin-counts');
  if(node)node.textContent=`DMP参加表明者：${dmpPredictionParticipants.length}人 ／ 当日枠：${predictionParticipants.filter(p=>p.dayOf).length}人 ／ 参加確定者：${predictionParticipants.filter(p=>p.confirmed===true).length}人 ／ 参加未確定・未確認者：${predictionParticipants.filter(p=>p.confirmed!==true).length}人 ／ 母数予想対象：${currentPredictionTargets().length}人`;
 }
@@ -528,15 +531,7 @@ button.addEventListener(
 
       renderParticipantRows(data);
 
-      document.getElementById(
-        "participant-count"
-      ).textContent =
-        "取得件数：" +
-        data.count +
-        "人" + (data.recentDecksMessage ? "（" + data.recentDecksMessage + "）" : "");
-
-
-      document.getElementById("participant-load-status").textContent = "参加者を取得しました。";
+      document.getElementById("participant-load-status").textContent = "参加者を取得しました。" + (data.recentDecksMessage || '');
     } catch (error) {
       document.getElementById("participant-load-status").textContent = "取得に失敗しました。" + error.message;
 
@@ -628,7 +623,7 @@ resetButton.addEventListener(
     document.getElementById(
       "participant-count"
     ).textContent =
-      "取得件数：0人";
+      "表示・集計対象：0人（全参加者：0人）";
   }
 );
 

@@ -86,7 +86,8 @@
       <p id="checkin-load-status" role="status"></p>
       <label for="checkin-confirmed-only">参加者の表示・母数予想</label>
       <label><input type="checkbox" id="checkin-confirmed-only">参加確定者のみ（未選択：全参加者）</label>
-      <p>DMP参加表明者は通常どおり集計します。DMP ID未確認の参加者は名前で照合せず、手動予想を保存できます。</p>
+      <p>「参加確定者のみ」はDMP参加表明者も含めて未確定・未確認者を除外します。DMP ID未確認の参加者は名前で照合せず、手動予想を保存できます。</p>
+      <p id="checkin-confirmation-help">参加確定は受付済みで判定します（スガツール：isReception、のじぎく：paid）。エントリー確定・チェックインだけでは対象に含めず、受付前・状態未確認は除外します。</p>
       <p id="checkin-counts" aria-live="polite"></p>
       </div>
 
@@ -150,7 +151,7 @@
 
         <p id="participant-format" aria-live="polite">大会フォーマット：不明</p>
         <p id="participant-count">
-          取得件数：0人
+          表示・集計対象：0人（全参加者：0人）
         </p>
 
         <p>対象大会より前の開催日が分かる履歴を表示します（日付不明・同日分は除外）。</p>
