@@ -117,3 +117,49 @@ test('existing DMP parser and Shift_JIS detail fetch provide identity, name and 
   assert.equal(detail.eventDate, '2026-09-28');
   assert.equal(detail.held, '2');
 });
+
+test('actual 107/351/2 results include all 19 unranked players after short pages', async () => {
+  const pages = require('./fixtures/dmp-results-107-351-2.json');
+  const htmlRows = require('./fixtures/dmp-results-107-351-2-html.json');
+  const f = fixture(), offsets = [];
+  f.context.fetch = async (url, options) => {
+    assert.equal(url, 'https://www.dmp-ranking.com/Deckbuild/Event/EventResult.aspx/GetResultRanking');
+    const body = JSON.parse(options.body);
+    assert.deepEqual([body.year,body.shopID,body.eventID,body.heldID], ['2026','107','351','2']);
+    offsets.push(body.offset);
+    const page = pages.find(p => p.offset === body.offset);
+    assert.ok(page, 'unexpected offset ' + body.offset);
+    return {ok:true,json:async()=>page.response};
+  };
+  const rows = await f.context.fetchResultParticipants({year:2026,shopId:107,eventId:351,held:2});
+  assert.deepEqual(offsets, pages.map(p=>p.offset));
+  assert.equal(rows.length, 64);
+  assert.equal(rows.filter(p=>p.rank !== '').length, 45);
+  assert.equal(rows.filter(p=>p.rank === '').length, 19);
+  assert.equal(new Set(rows.map(p=>p.id)).size,64);
+  const {load} = require('cheerio');
+  const normalize = name => load('<span>'+name+'</span>')('span').text().trim();
+  assert.deepEqual(Array.from(rows,p=>[normalize(p.name),p.rank ? p.rank+'位':'－']).sort(),
+    htmlRows.map(p=>[p.name,p.rank]).sort());
+  await f.save(rows);
+  assert.equal(f.records.size,64);
+  assert.equal([...f.records.values()].filter(([rank])=>rank===null).length,19);
+  const before = pages.slice(0,2).flatMap(p=>JSON.parse(p.response.d));
+  assert.equal(before.length,46);
+  assert.equal(before.filter(p=>p['順位']==='').length,1);
+});
+
+test('DMP ID deduplication retains distinct unranked players and advances by source rows', async () => {
+  const f=fixture(), offsets=[];
+  const pages = [
+    [{会員ID:'001',ハンドルネーム:'A',順位:''},{会員ID:'001',ハンドルネーム:'A',順位:''}],
+    [{会員ID:'002',ハンドルネーム:'B',順位:''}], []
+  ];
+  f.context.fetch=async (url,options)=>{
+    offsets.push(JSON.parse(options.body).offset);
+    return {ok:true,json:async()=>({d:pages.shift()})};
+  };
+  const rows=await f.context.fetchResultParticipants({year:2026,shopId:107,eventId:351,held:2});
+  assert.deepEqual(offsets,[0,2,3]);
+  assert.deepEqual(Array.from(rows,p=>[p.id,p.rank]),[['001',''],['002','']]);
+});

@@ -428,6 +428,7 @@ async function fetchResultParticipants({
   signal
 }) {
   const participants = [];
+  const seen = new Set();
 
   let offset = 0;
 
@@ -492,9 +493,12 @@ async function fetchResultParticipants({
     if (data.length === 0) break;
 
     for (const participant of data) {
+      const id = String(participant["会員ID"] ?? "").trim();
+      if (seen.has(id)) continue;
+      seen.add(id);
       participants.push({
         id:
-          participant["会員ID"],
+          id,
 
         name:
           participant["ハンドルネーム"],
@@ -504,11 +508,9 @@ async function fetchResultParticipants({
       });
     }
 
-    if (data.length < 30) {
-  break;
-}
-
-offset += 30;
+    // 空順位の区間は1件ずつ返るため、短いページも終端ではない。
+    // 重複除去後の人数ではなく、取得元の行数だけ進める。
+    offset += data.length;
   }
 
   return participants;
